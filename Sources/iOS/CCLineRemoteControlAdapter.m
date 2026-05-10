@@ -46,8 +46,15 @@
     if ([operation isEqualToString:CCRemoteControlOperationStatus]) {
         return @"INFO";
     }
+    if ([operation isEqualToString:CCRemoteControlOperationListWorkspaces]) {
+        return @"LIST_WORKSPACES 100";
+    }
     if ([operation isEqualToString:CCRemoteControlOperationListSessions]) {
-        return @"LIST_SESSIONS 20";
+        NSString *workspace = [self stringParameter:@"workspace" fromParameters:parameters];
+        if ([workspace length] == 0) {
+            workspace = [CCConnectionProfile workspace];
+        }
+        return [NSString stringWithFormat:@"LIST_SESSIONS 20 %@", workspace];
     }
     if ([operation isEqualToString:CCRemoteControlOperationListFiles]) {
         NSString *path = [self stringParameter:@"path" fromParameters:parameters];
@@ -165,6 +172,13 @@
             return data;
         }
     }
+    if ([operation isEqualToString:CCRemoteControlOperationListWorkspaces] &&
+        [object isKindOfClass:[NSDictionary class]]) {
+        id workspaces = [object objectForKey:@"workspaces"];
+        if ([workspaces isKindOfClass:[NSArray class]]) {
+            return workspaces;
+        }
+    }
     if ([operation isEqualToString:CCRemoteControlOperationListFiles] &&
         [object isKindOfClass:[NSDictionary class]]) {
         id entries = [object objectForKey:@"entries"];
@@ -180,6 +194,9 @@
     NSArray *items = [self itemsForOperation:operation object:object];
     if ([operation isEqualToString:CCRemoteControlOperationListSessions]) {
         return [NSString stringWithFormat:@"%lu sessions", (unsigned long)[items count]];
+    }
+    if ([operation isEqualToString:CCRemoteControlOperationListWorkspaces]) {
+        return [NSString stringWithFormat:@"%lu workspaces", (unsigned long)[items count]];
     }
     if ([operation isEqualToString:CCRemoteControlOperationListFiles]) {
         return [NSString stringWithFormat:@"%lu entries", (unsigned long)[items count]];

@@ -192,9 +192,29 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
         if command in ("INFO", "STATUS"):
             self.ok(client.info())
             return False
+        if command == "LIST_WORKSPACES":
+            limit = int(rest) if rest else 100
+            result = client.request("thread/list", {"limit": limit, "useStateDbOnly": False})
+            seen = set()
+            workspaces = []
+            default_workspace = self.server.workspace
+            if default_workspace:
+                seen.add(default_workspace)
+                workspaces.append({"path": default_workspace, "label": os.path.basename(default_workspace) or default_workspace, "current": True})
+            for thread in result.get("data", []):
+                cwd = thread.get("cwd")
+                if not cwd or cwd in seen:
+                    continue
+                seen.add(cwd)
+                workspaces.append({"path": cwd, "label": os.path.basename(cwd) or cwd, "current": cwd == default_workspace})
+            self.ok({"workspaces": workspaces})
+            return False
         if command == "LIST_SESSIONS":
-            limit = int(rest) if rest else 20
+            tokens = rest.split(" ", 1)
+            limit = int(tokens[0]) if tokens and tokens[0] else 20
             params = {"limit": limit, "useStateDbOnly": False}
+            if len(tokens) > 1 and tokens[1]:
+                params["cwd"] = tokens[1]
             self.ok(client.request("thread/list", params))
             return False
         if command == "GET_TRANSCRIPT":

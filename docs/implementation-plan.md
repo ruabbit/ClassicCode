@@ -64,25 +64,26 @@ Do not extend it into a parallel Codex clone unless needed as an adapter to `cod
 
 ### Connections
 
-Connections are settings, not primary homepage content.
+Connection endpoints are settings, not primary homepage content.
 
 Connection profiles should live under Settings and contain:
 
 - display name,
 - host,
 - port or tunnel profile,
-- workspace default,
 - optional authentication metadata,
 - last successful check time,
 - diagnostic result.
 
-The home screen should show only connection state:
+Workspace is current context, not connection configuration. The home screen should show connection state and let the user choose the active workspace before entering the Workbench:
 
 - disconnected,
 - connecting,
 - connected,
 - running,
 - error.
+
+The home workspace list is populated from Codex sessions through the bridge. Settings should not contain a workspace text field.
 
 ### Information Layout
 

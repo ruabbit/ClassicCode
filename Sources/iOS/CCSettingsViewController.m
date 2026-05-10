@@ -1,13 +1,12 @@
 #import "CCSettingsViewController.h"
 #import "CCConnectionProfile.h"
-#import "CCDiagnosticRemoteControlAdapter.h"
+#import "CCLineRemoteControlAdapter.h"
 
 @implementation CCSettingsViewController {
     UIScrollView *_scrollView;
     UITextField *_displayNameField;
     UITextField *_hostField;
     UITextField *_portField;
-    UITextField *_workspaceField;
     UILabel *_diagnosticLabel;
     UIButton *_testButton;
     id<CCRemoteControlAdapter> _adapter;
@@ -19,7 +18,6 @@
     [_displayNameField release];
     [_hostField release];
     [_portField release];
-    [_workspaceField release];
     [_diagnosticLabel release];
     [_testButton release];
     [_adapter release];
@@ -32,7 +30,7 @@
     self.title = @"Settings";
     self.view.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1.0];
     self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave target:self action:@selector(save:)] autorelease];
-    _adapter = [[CCDiagnosticRemoteControlAdapter alloc] init];
+    _adapter = [[CCLineRemoteControlAdapter alloc] init];
 
     _scrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
     [self.view addSubview:_scrollView];
@@ -51,10 +49,6 @@
     _portField.keyboardType = UIKeyboardTypeNumberPad;
     [_scrollView addSubview:_portField];
 
-    _workspaceField = [[self newTextFieldWithPlaceholder:@"Workspace"] retain];
-    _workspaceField.text = [CCConnectionProfile workspace];
-    [_scrollView addSubview:_workspaceField];
-
     _testButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
     [_testButton setTitle:@"Test Connection" forState:UIControlStateNormal];
     [_testButton addTarget:self action:@selector(testConnection:) forControlEvents:UIControlEventTouchUpInside];
@@ -65,7 +59,7 @@
     _diagnosticLabel.font = [UIFont systemFontOfSize:14.0];
     _diagnosticLabel.textColor = [UIColor darkGrayColor];
     _diagnosticLabel.numberOfLines = 0;
-    _diagnosticLabel.text = @"Connection diagnostics stay here, not on Home.";
+    _diagnosticLabel.text = @"Connection endpoint only. Choose the current workspace on Home.";
     [_scrollView addSubview:_diagnosticLabel];
 }
 
@@ -89,7 +83,7 @@
     CGFloat margin = 18.0;
     CGFloat width = bounds.size.width - margin * 2.0;
     CGFloat y = 18.0;
-    NSArray *fields = [NSArray arrayWithObjects:_displayNameField, _hostField, _portField, _workspaceField, nil];
+    NSArray *fields = [NSArray arrayWithObjects:_displayNameField, _hostField, _portField, nil];
     for (UITextField *field in fields) {
         field.frame = CGRectMake(margin, y, width, 38.0);
         y += 48.0;
@@ -112,8 +106,7 @@
     (void)sender;
     [CCConnectionProfile saveDisplayName:_displayNameField.text
                                     host:_hostField.text
-                                    port:[_portField.text integerValue]
-                               workspace:_workspaceField.text];
+                                    port:[_portField.text integerValue]];
     _diagnosticLabel.text = @"Saved.";
 }
 
