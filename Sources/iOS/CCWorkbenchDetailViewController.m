@@ -625,7 +625,7 @@
     UILabel *label = [[[UILabel alloc] initWithFrame:CGRectMake(4.0, 72.0, width - 8.0, 32.0)] autorelease];
     label.backgroundColor = [UIColor clearColor];
     label.font = [UIFont systemFontOfSize:12.0];
-    label.textAlignment = UITextAlignmentCenter;
+    label.textAlignment = NSTextAlignmentCenter;
     label.numberOfLines = 2;
     label.lineBreakMode = NSLineBreakByTruncatingMiddle;
     label.text = [self fileNameForEntry:entry];
