@@ -173,7 +173,7 @@
         UIFont *titleFont = [UIFont boldSystemFontOfSize:11.0];
         UIFont *bodyFont = [role isEqualToString:@"tool"] ? [UIFont fontWithName:@"Courier" size:12.0] : [UIFont systemFontOfSize:14.0];
         CGSize titleSize = [title sizeWithFont:titleFont constrainedToSize:CGSizeMake(maxBubbleWidth - labelInset * 2.0, 18.0)];
-        CGSize bodySize = [text sizeWithFont:bodyFont constrainedToSize:CGSizeMake(maxBubbleWidth - labelInset * 2.0, 10000.0) lineBreakMode:UILineBreakModeWordWrap];
+        CGSize bodySize = [text sizeWithFont:bodyFont constrainedToSize:CGSizeMake(maxBubbleWidth - labelInset * 2.0, 10000.0) lineBreakMode:NSLineBreakByWordWrapping];
         CGFloat bubbleWidth = MAX(titleSize.width, bodySize.width) + labelInset * 2.0;
         bubbleWidth = MIN(maxBubbleWidth, MAX(96.0, bubbleWidth));
         CGFloat bubbleHeight = titleSize.height + bodySize.height + 18.0;
@@ -197,7 +197,7 @@
         bodyLabel.backgroundColor = [UIColor clearColor];
         bodyLabel.font = bodyFont;
         bodyLabel.numberOfLines = 0;
-        bodyLabel.lineBreakMode = UILineBreakModeWordWrap;
+        bodyLabel.lineBreakMode = NSLineBreakByWordWrapping;
         bodyLabel.text = text;
         [bubble addSubview:bodyLabel];
 
