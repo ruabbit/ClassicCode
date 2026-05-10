@@ -72,4 +72,15 @@
     }
 }
 
+- (void)workbenchListDidSelectDirectoryTitle:(NSString *)title path:(NSString *)path entries:(NSArray *)entries
+{
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        [_detailController showDirectoryWithTitle:title path:path entries:entries];
+    } else {
+        CCWorkbenchDetailViewController *detail = [[[CCWorkbenchDetailViewController alloc] init] autorelease];
+        [self.navigationController pushViewController:detail animated:YES];
+        [detail showDirectoryWithTitle:title path:path entries:entries];
+    }
+}
+
 @end

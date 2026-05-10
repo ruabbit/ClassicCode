@@ -12,7 +12,12 @@
     UILabel *_titleLabel;
     UITextView *_bodyView;
     UIScrollView *_messageScrollView;
+    UIScrollView *_fileBrowserScrollView;
+    UISegmentedControl *_fileBrowserModeControl;
     NSArray *_messageItems;
+    NSArray *_directoryEntries;
+    NSString *_directoryPath;
+    BOOL _scrollMessagesToBottomAfterLayout;
     UITextField *_promptField;
     UIButton *_runButton;
     id<CCRemoteControlAdapter> _adapter;
@@ -23,7 +28,11 @@
     [_titleLabel release];
     [_bodyView release];
     [_messageScrollView release];
+    [_fileBrowserScrollView release];
+    [_fileBrowserModeControl release];
     [_messageItems release];
+    [_directoryEntries release];
+    [_directoryPath release];
     [_promptField release];
     [_runButton release];
     [_adapter release];
@@ -51,6 +60,18 @@
     _messageScrollView.backgroundColor = [UIColor whiteColor];
     _messageScrollView.hidden = YES;
     [self.view addSubview:_messageScrollView];
+
+    _fileBrowserScrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
+    _fileBrowserScrollView.backgroundColor = [UIColor whiteColor];
+    _fileBrowserScrollView.hidden = YES;
+    [self.view addSubview:_fileBrowserScrollView];
+
+    _fileBrowserModeControl = [[UISegmentedControl alloc] initWithItems:[NSArray arrayWithObjects:@"Icons", @"List", nil]];
+    _fileBrowserModeControl.segmentedControlStyle = UISegmentedControlStyleBar;
+    _fileBrowserModeControl.selectedSegmentIndex = 0;
+    _fileBrowserModeControl.hidden = YES;
+    [_fileBrowserModeControl addTarget:self action:@selector(fileBrowserModeChanged:) forControlEvents:UIControlEventValueChanged];
+    [self.view addSubview:_fileBrowserModeControl];
 
     _promptField = [[UITextField alloc] initWithFrame:CGRectZero];
     _promptField.borderStyle = UITextBorderStyleRoundedRect;
@@ -83,6 +104,14 @@
                                  bounds.size.width - margin * 2.0,
                                  bounds.size.height - 48.0 - composerHeight - 22.0);
     _messageScrollView.frame = _bodyView.frame;
+    _fileBrowserModeControl.frame = CGRectMake(margin,
+                                               48.0,
+                                               180.0,
+                                               30.0);
+    _fileBrowserScrollView.frame = CGRectMake(margin,
+                                              88.0,
+                                              bounds.size.width - margin * 2.0,
+                                              bounds.size.height - 88.0 - composerHeight - 22.0);
     _promptField.frame = CGRectMake(margin,
                                     bounds.size.height - composerHeight - 10.0,
                                     bounds.size.width - margin * 2.0 - runWidth - 8.0,
@@ -92,6 +121,7 @@
                                   runWidth,
                                   composerHeight);
     [self layoutMessageItems];
+    [self layoutFileBrowser];
 }
 
 - (void)showTitle:(NSString *)title body:(NSString *)body
@@ -105,11 +135,18 @@
     _bodyView.text = body;
     self.title = title;
 
+    [_directoryEntries release];
+    _directoryEntries = nil;
+    [_directoryPath release];
+    _directoryPath = nil;
     [_messageItems release];
     _messageItems = [items retain];
     BOOL hasItems = [items count] > 0;
     _bodyView.hidden = hasItems;
     _messageScrollView.hidden = !hasItems;
+    _fileBrowserScrollView.hidden = YES;
+    _fileBrowserModeControl.hidden = YES;
+    _scrollMessagesToBottomAfterLayout = hasItems;
     [self layoutMessageItems];
 }
 
@@ -433,6 +470,267 @@
         y += bubbleHeight + margin;
     }
     _messageScrollView.contentSize = CGSizeMake(width, y + margin);
+    if (_scrollMessagesToBottomAfterLayout) {
+        CGFloat offsetY = MAX(0.0, _messageScrollView.contentSize.height - _messageScrollView.bounds.size.height);
+        _messageScrollView.contentOffset = CGPointMake(0.0, offsetY);
+        _scrollMessagesToBottomAfterLayout = NO;
+    }
+}
+
+- (void)clearFileBrowserViews
+{
+    NSArray *subviews = [[_fileBrowserScrollView subviews] copy];
+    for (UIView *view in subviews) {
+        [view removeFromSuperview];
+    }
+    [subviews release];
+}
+
+- (NSString *)fileNameForEntry:(NSDictionary *)entry
+{
+    NSString *name = [self stringValue:[entry objectForKey:@"fileName"]];
+    return [name length] > 0 ? name : @"Untitled";
+}
+
+- (BOOL)entryIsDirectory:(NSDictionary *)entry
+{
+    return [[entry objectForKey:@"isDirectory"] boolValue];
+}
+
+- (NSString *)pathForEntry:(NSDictionary *)entry
+{
+    NSString *name = [self fileNameForEntry:entry];
+    if ([_directoryPath length] == 0) {
+        return name;
+    }
+    return [_directoryPath stringByAppendingPathComponent:name];
+}
+
+- (UIImage *)iconForEntry:(NSDictionary *)entry small:(BOOL)small
+{
+    NSString *name = [self fileNameForEntry:entry];
+    NSString *lower = [name lowercaseString];
+    NSString *base = @"document";
+    if ([self entryIsDirectory:entry]) {
+        base = @"folder";
+    } else if ([lower hasSuffix:@".app"]) {
+        base = @"application";
+    } else if ([lower hasSuffix:@".sh"] || [lower hasSuffix:@".py"] || [lower hasSuffix:@".rb"] ||
+               [lower hasSuffix:@".pl"] || [lower hasSuffix:@".command"]) {
+        base = @"executable";
+    }
+    NSString *imageName = small ? [base stringByAppendingString:@"-small.png"] : [base stringByAppendingString:@".png"];
+    UIImage *image = [UIImage imageNamed:imageName];
+    if (image == nil && ![base isEqualToString:@"document"]) {
+        imageName = small ? @"document-small.png" : @"document.png";
+        image = [UIImage imageNamed:imageName];
+    }
+    return image;
+}
+
+- (void)openDirectoryPath:(NSString *)path title:(NSString *)title
+{
+    _titleLabel.text = title;
+    self.title = title;
+    [self clearFileBrowserViews];
+    UILabel *loading = [[[UILabel alloc] initWithFrame:CGRectMake(12.0, 12.0, _fileBrowserScrollView.bounds.size.width - 24.0, 24.0)] autorelease];
+    loading.backgroundColor = [UIColor clearColor];
+    loading.text = @"Loading...";
+    [_fileBrowserScrollView addSubview:loading];
+
+    [path retain];
+    [title retain];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        NSError *error = nil;
+        NSDictionary *params = [NSDictionary dictionaryWithObject:path forKey:@"path"];
+        CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationListFiles parameters:params error:&error];
+        NSArray *entries = result.items;
+        BOOL connected = [result.state isEqualToString:@"connected"];
+        NSString *body = [error localizedDescription];
+        if ([entries count] == 0 && [body length] == 0) {
+            body = @"Empty folder.";
+        }
+        [entries retain];
+        [body retain];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (connected) {
+                [self showDirectoryWithTitle:title path:path entries:entries];
+            } else {
+                [self showTitle:title body:body];
+            }
+            [entries release];
+            [body release];
+            [path release];
+            [title release];
+        });
+        [pool drain];
+    });
+}
+
+- (void)openFilePath:(NSString *)path title:(NSString *)title
+{
+    [self showTitle:title body:@"Loading..."];
+    [path retain];
+    [title retain];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        NSError *error = nil;
+        NSDictionary *params = [NSDictionary dictionaryWithObject:path forKey:@"path"];
+        CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationReadFile parameters:params error:&error];
+        NSString *body = result.detail;
+        if ([body length] == 0) {
+            body = [error localizedDescription];
+        }
+        [body retain];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self showTitle:title body:body];
+            [body release];
+            [path release];
+            [title release];
+        });
+        [pool drain];
+    });
+}
+
+- (void)fileBrowserItemTapped:(id)sender
+{
+    NSInteger index = [sender tag];
+    if (index < 0 || index >= (NSInteger)[_directoryEntries count]) {
+        return;
+    }
+    NSDictionary *entry = [_directoryEntries objectAtIndex:(NSUInteger)index];
+    NSString *path = [self pathForEntry:entry];
+    NSString *name = [self fileNameForEntry:entry];
+    if ([self entryIsDirectory:entry]) {
+        [self openDirectoryPath:path title:name];
+    } else {
+        [self openFilePath:path title:name];
+    }
+}
+
+- (void)addIconItemForEntry:(NSDictionary *)entry index:(NSInteger)index x:(CGFloat)x y:(CGFloat)y width:(CGFloat)width
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    button.frame = CGRectMake(x, y, width, 106.0);
+    button.tag = index;
+    [button addTarget:self action:@selector(fileBrowserItemTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [_fileBrowserScrollView addSubview:button];
+
+    UIImageView *iconView = [[[UIImageView alloc] initWithImage:[self iconForEntry:entry small:NO]] autorelease];
+    iconView.frame = CGRectMake((width - 64.0) / 2.0, 4.0, 64.0, 64.0);
+    iconView.contentMode = UIViewContentModeScaleAspectFit;
+    [button addSubview:iconView];
+
+    UILabel *label = [[[UILabel alloc] initWithFrame:CGRectMake(4.0, 72.0, width - 8.0, 32.0)] autorelease];
+    label.backgroundColor = [UIColor clearColor];
+    label.font = [UIFont systemFontOfSize:12.0];
+    label.textAlignment = UITextAlignmentCenter;
+    label.numberOfLines = 2;
+    label.lineBreakMode = NSLineBreakByTruncatingMiddle;
+    label.text = [self fileNameForEntry:entry];
+    [button addSubview:label];
+}
+
+- (void)addListItemForEntry:(NSDictionary *)entry index:(NSInteger)index y:(CGFloat)y width:(CGFloat)width
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    button.frame = CGRectMake(0.0, y, width, 44.0);
+    button.tag = index;
+    [button addTarget:self action:@selector(fileBrowserItemTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [_fileBrowserScrollView addSubview:button];
+
+    UIImageView *iconView = [[[UIImageView alloc] initWithImage:[self iconForEntry:entry small:YES]] autorelease];
+    iconView.frame = CGRectMake(8.0, 6.0, 32.0, 32.0);
+    iconView.contentMode = UIViewContentModeScaleAspectFit;
+    [button addSubview:iconView];
+
+    UILabel *nameLabel = [[[UILabel alloc] initWithFrame:CGRectMake(50.0, 2.0, width - 62.0, 24.0)] autorelease];
+    nameLabel.backgroundColor = [UIColor clearColor];
+    nameLabel.font = [UIFont systemFontOfSize:14.0];
+    nameLabel.text = [self fileNameForEntry:entry];
+    [button addSubview:nameLabel];
+
+    UILabel *typeLabel = [[[UILabel alloc] initWithFrame:CGRectMake(50.0, 24.0, width - 62.0, 16.0)] autorelease];
+    typeLabel.backgroundColor = [UIColor clearColor];
+    typeLabel.font = [UIFont systemFontOfSize:11.0];
+    typeLabel.textColor = [UIColor darkGrayColor];
+    typeLabel.text = [self entryIsDirectory:entry] ? @"Folder" : @"File";
+    [button addSubview:typeLabel];
+
+    UIView *line = [[[UIView alloc] initWithFrame:CGRectMake(50.0, 43.0, width - 50.0, 1.0)] autorelease];
+    line.backgroundColor = [UIColor colorWithWhite:0.88 alpha:1.0];
+    [button addSubview:line];
+}
+
+- (void)layoutFileBrowser
+{
+    if (_fileBrowserScrollView == nil || _fileBrowserScrollView.hidden || _directoryEntries == nil) {
+        return;
+    }
+    [self clearFileBrowserViews];
+
+    CGFloat width = _fileBrowserScrollView.bounds.size.width;
+    if (width <= 0.0) {
+        return;
+    }
+
+    if (_fileBrowserModeControl.selectedSegmentIndex == 1) {
+        CGFloat y = 0.0;
+        for (NSUInteger index = 0; index < [_directoryEntries count]; index++) {
+            [self addListItemForEntry:[_directoryEntries objectAtIndex:index]
+                                index:(NSInteger)index
+                                    y:y
+                                width:width];
+            y += 44.0;
+        }
+        _fileBrowserScrollView.contentSize = CGSizeMake(width, y);
+        return;
+    }
+
+    CGFloat itemWidth = 112.0;
+    NSInteger columns = MAX(1, (NSInteger)floorf(width / itemWidth));
+    CGFloat gutter = (width - columns * itemWidth) / (columns + 1);
+    CGFloat y = 8.0;
+    for (NSUInteger index = 0; index < [_directoryEntries count]; index++) {
+        NSInteger column = (NSInteger)(index % (NSUInteger)columns);
+        NSInteger row = (NSInteger)(index / (NSUInteger)columns);
+        CGFloat x = gutter + column * (itemWidth + gutter);
+        y = 8.0 + row * 116.0;
+        [self addIconItemForEntry:[_directoryEntries objectAtIndex:index]
+                            index:(NSInteger)index
+                                x:x
+                                y:y
+                            width:itemWidth];
+    }
+    NSInteger rows = ((NSInteger)[_directoryEntries count] + columns - 1) / columns;
+    _fileBrowserScrollView.contentSize = CGSizeMake(width, 8.0 + rows * 116.0);
+}
+
+- (void)fileBrowserModeChanged:(id)sender
+{
+    (void)sender;
+    [self layoutFileBrowser];
+}
+
+- (void)showDirectoryWithTitle:(NSString *)title path:(NSString *)path entries:(NSArray *)entries
+{
+    _titleLabel.text = title;
+    _bodyView.text = @"";
+    self.title = title;
+
+    [_messageItems release];
+    _messageItems = nil;
+    [_directoryEntries release];
+    _directoryEntries = [entries retain];
+    [_directoryPath release];
+    _directoryPath = [path retain];
+
+    _bodyView.hidden = YES;
+    _messageScrollView.hidden = YES;
+    _fileBrowserScrollView.hidden = NO;
+    _fileBrowserModeControl.hidden = NO;
+    [self layoutFileBrowser];
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField

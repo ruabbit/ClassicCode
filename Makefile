@@ -33,6 +33,7 @@ IOS_SRCS := Sources/iOS/main.m \
 HOST_OBJS := $(patsubst %.m,$(BUILD_DIR)/macosx/obj/%.o,$(HOST_SRCS))
 IOS_OBJS := $(patsubst %.m,$(BUILD_DIR)/iphoneos/obj/%.o,$(IOS_SRCS))
 IOS_ICON_SRCS := $(wildcard Resources/iOS/Icons/*)
+IOS_FILE_ICON_SRCS := $(wildcard Resources/iOS/FileIcons/*)
 
 COMMON_WARNINGS := -Wall -Wextra -Werror=implicit-function-declaration
 COMMON_INCLUDES := -ISources/Shared
@@ -72,12 +73,13 @@ $(BUILD_DIR)/macosx/$(HOST_NAME): $(HOST_OBJS)
 	@mkdir -p "$(dir $@)"
 	$(MAC_CC) $(MAC_CFLAGS) $^ -framework Foundation -o "$@"
 
-$(BUILD_DIR)/iphoneos/$(IOS_APP_NAME).app: $(IOS_OBJS) Resources/iOS/Info.plist $(IOS_ICON_SRCS)
+$(BUILD_DIR)/iphoneos/$(IOS_APP_NAME).app: $(IOS_OBJS) Resources/iOS/Info.plist $(IOS_ICON_SRCS) $(IOS_FILE_ICON_SRCS)
 	@rm -rf "$@"
 	@mkdir -p "$@"
 	$(IOS_CC) $(IOS_CFLAGS) $(IOS_OBJS) -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -o "$@/$(IOS_APP_NAME)"
 	@cp Resources/iOS/Info.plist "$@/Info.plist"
 	@cp Resources/iOS/Icons/* "$@/"
+	@cp Resources/iOS/FileIcons/* "$@/"
 	@chmod 755 "$@/$(IOS_APP_NAME)"
 	@if command -v ldid >/dev/null 2>&1; then ldid -S "$@/$(IOS_APP_NAME)"; else echo "ldid not found; leaving iOS binary unsigned"; fi
 

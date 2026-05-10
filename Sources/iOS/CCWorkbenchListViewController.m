@@ -105,6 +105,7 @@ enum {
         CCRemoteControlResult *fileResult = [_adapter performOperation:CCRemoteControlOperationListFiles parameters:fileParams error:&fileError];
         NSArray *conversations = sessionResult.items;
         NSArray *files = fileResult.items;
+        BOOL filesConnected = [fileResult.state isEqualToString:@"connected"];
         NSString *body = nil;
         if ([sessionResult.state isEqualToString:@"connected"] || [fileResult.state isEqualToString:@"connected"]) {
             body = [NSString stringWithFormat:@"%@\n\n%lu conversations\n%lu files/directories",
@@ -121,7 +122,11 @@ enum {
         [body retain];
         dispatch_async(dispatch_get_main_queue(), ^{
             [self setConversations:conversations files:files];
-            [_delegate workbenchListDidSelectTitle:self.title body:body];
+            if (filesConnected) {
+                [_delegate workbenchListDidSelectDirectoryTitle:[path lastPathComponent] path:path entries:files];
+            } else {
+                [_delegate workbenchListDidSelectTitle:self.title body:body];
+            }
             [conversations release];
             [files release];
             [body release];

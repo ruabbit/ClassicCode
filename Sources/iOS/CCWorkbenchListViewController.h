@@ -11,4 +11,5 @@
 @protocol CCWorkbenchListViewControllerDelegate <NSObject>
 - (void)workbenchListDidSelectTitle:(NSString *)title body:(NSString *)body;
 - (void)workbenchListDidSelectTitle:(NSString *)title body:(NSString *)body items:(NSArray *)items;
+- (void)workbenchListDidSelectDirectoryTitle:(NSString *)title path:(NSString *)path entries:(NSArray *)entries;
 @end
