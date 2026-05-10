@@ -11,6 +11,7 @@
     CCWorkbenchDetailViewController *_detailController;
     UIView *_sidebarHeaderView;
     UILabel *_sidebarTitleLabel;
+    UIToolbar *_sidebarComposeToolbar;
     UIView *_sidebarHeaderLine;
 }
 
@@ -20,6 +21,7 @@
     [_detailController release];
     [_sidebarHeaderView release];
     [_sidebarTitleLabel release];
+    [_sidebarComposeToolbar release];
     [_sidebarHeaderLine release];
     [super dealloc];
 }
@@ -44,6 +46,14 @@
     NSString *workspaceName = [workspace lastPathComponent];
     _sidebarTitleLabel.text = [workspaceName length] > 0 ? workspaceName : workspace;
     [_sidebarHeaderView addSubview:_sidebarTitleLabel];
+
+    _sidebarComposeToolbar = [[UIToolbar alloc] initWithFrame:CGRectZero];
+    _sidebarComposeToolbar.barStyle = UIBarStyleDefault;
+    UIBarButtonItem *compose = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCompose
+                                                                              target:self
+                                                                              action:@selector(newConversation:)] autorelease];
+    _sidebarComposeToolbar.items = [NSArray arrayWithObject:compose];
+    [_sidebarHeaderView addSubview:_sidebarComposeToolbar];
 
     _sidebarHeaderLine = [[UIView alloc] initWithFrame:CGRectZero];
     _sidebarHeaderLine.backgroundColor = [UIColor colorWithWhite:0.72 alpha:1.0];
@@ -82,6 +92,22 @@
     }
 }
 
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        [self.navigationController setNavigationBarHidden:YES animated:animated];
+    }
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [super viewWillDisappear:animated];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        [self.navigationController setNavigationBarHidden:NO animated:animated];
+    }
+}
+
 - (void)viewDidLayoutSubviews
 {
     [super viewDidLayoutSubviews];
@@ -91,7 +117,8 @@
         CGFloat listWidth = 300.0;
         CGFloat headerHeight = 48.0;
         _sidebarHeaderView.frame = CGRectMake(0.0, 0.0, listWidth, headerHeight);
-        _sidebarTitleLabel.frame = CGRectMake(18.0, 6.0, listWidth - 36.0, headerHeight - 12.0);
+        _sidebarTitleLabel.frame = CGRectMake(18.0, 6.0, listWidth - 72.0, headerHeight - 12.0);
+        _sidebarComposeToolbar.frame = CGRectMake(listWidth - 52.0, 2.0, 44.0, 44.0);
         _sidebarHeaderLine.frame = CGRectMake(0.0, headerHeight - 1.0, listWidth, 1.0);
         _listController.view.frame = CGRectMake(0.0, headerHeight, listWidth, bounds.size.height - headerHeight);
         _detailController.view.frame = CGRectMake(listWidth, 0.0, bounds.size.width - listWidth, bounds.size.height);
