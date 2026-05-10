@@ -1,4 +1,5 @@
 #import "CCWorkbenchViewController.h"
+#import "CCConnectionProfile.h"
 #import "CCWorkbenchDetailViewController.h"
 #import "CCWorkbenchListViewController.h"
 
@@ -8,12 +9,18 @@
 @implementation CCWorkbenchViewController {
     CCWorkbenchListViewController *_listController;
     CCWorkbenchDetailViewController *_detailController;
+    UIView *_sidebarHeaderView;
+    UILabel *_sidebarTitleLabel;
+    UIView *_sidebarHeaderLine;
 }
 
 - (void)dealloc
 {
     [_listController release];
     [_detailController release];
+    [_sidebarHeaderView release];
+    [_sidebarTitleLabel release];
+    [_sidebarHeaderLine release];
     [super dealloc];
 }
 
@@ -26,11 +33,28 @@
                                                                                             target:self
                                                                                             action:@selector(newConversation:)] autorelease];
 
+    _sidebarHeaderView = [[UIView alloc] initWithFrame:CGRectZero];
+    _sidebarHeaderView.backgroundColor = [UIColor colorWithRed:0.86 green:0.91 blue:0.94 alpha:1.0];
+    [self.view addSubview:_sidebarHeaderView];
+
+    _sidebarTitleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    _sidebarTitleLabel.backgroundColor = [UIColor clearColor];
+    _sidebarTitleLabel.font = [UIFont boldSystemFontOfSize:16.0];
+    NSString *workspace = [CCConnectionProfile workspace];
+    NSString *workspaceName = [workspace lastPathComponent];
+    _sidebarTitleLabel.text = [workspaceName length] > 0 ? workspaceName : workspace;
+    [_sidebarHeaderView addSubview:_sidebarTitleLabel];
+
+    _sidebarHeaderLine = [[UIView alloc] initWithFrame:CGRectZero];
+    _sidebarHeaderLine.backgroundColor = [UIColor colorWithWhite:0.72 alpha:1.0];
+    [_sidebarHeaderView addSubview:_sidebarHeaderLine];
+
     _listController = [[CCWorkbenchListViewController alloc] initWithStyle:UITableViewStylePlain];
     _listController.delegate = self;
     _detailController = [[CCWorkbenchDetailViewController alloc] init];
 
     if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        _sidebarHeaderView.hidden = NO;
         [self addChildViewController:_listController];
         [self.view addSubview:_listController.view];
         [_listController didMoveToParentViewController:self];
@@ -39,6 +63,7 @@
         [self.view addSubview:_detailController.view];
         [_detailController didMoveToParentViewController:self];
     } else {
+        _sidebarHeaderView.hidden = YES;
         [self addChildViewController:_listController];
         [self.view addSubview:_listController.view];
         [_listController didMoveToParentViewController:self];
@@ -64,7 +89,11 @@
 
     if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
         CGFloat listWidth = 300.0;
-        _listController.view.frame = CGRectMake(0.0, 0.0, listWidth, bounds.size.height);
+        CGFloat headerHeight = 48.0;
+        _sidebarHeaderView.frame = CGRectMake(0.0, 0.0, listWidth, headerHeight);
+        _sidebarTitleLabel.frame = CGRectMake(18.0, 6.0, listWidth - 36.0, headerHeight - 12.0);
+        _sidebarHeaderLine.frame = CGRectMake(0.0, headerHeight - 1.0, listWidth, 1.0);
+        _listController.view.frame = CGRectMake(0.0, headerHeight, listWidth, bounds.size.height - headerHeight);
         _detailController.view.frame = CGRectMake(listWidth, 0.0, bounds.size.width - listWidth, bounds.size.height);
     } else {
         _listController.view.frame = bounds;

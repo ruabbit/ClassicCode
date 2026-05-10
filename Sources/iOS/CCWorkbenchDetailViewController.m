@@ -9,7 +9,11 @@
 @end
 
 @implementation CCWorkbenchDetailViewController {
+    UIView *_headerView;
+    UIView *_headerBottomLine;
     UILabel *_titleLabel;
+    UILabel *_pathLabel;
+    UIButton *_directoryBackButton;
     UITextView *_bodyView;
     UIScrollView *_messageScrollView;
     UIScrollView *_fileBrowserScrollView;
@@ -17,6 +21,7 @@
     NSArray *_messageItems;
     NSArray *_directoryEntries;
     NSString *_directoryPath;
+    NSMutableArray *_directoryHistory;
     BOOL _scrollMessagesToBottomAfterLayout;
     BOOL _composerVisible;
     UITextField *_promptField;
@@ -26,7 +31,11 @@
 
 - (void)dealloc
 {
+    [_headerView release];
+    [_headerBottomLine release];
     [_titleLabel release];
+    [_pathLabel release];
+    [_directoryBackButton release];
     [_bodyView release];
     [_messageScrollView release];
     [_fileBrowserScrollView release];
@@ -34,6 +43,7 @@
     [_messageItems release];
     [_directoryEntries release];
     [_directoryPath release];
+    [_directoryHistory release];
     [_promptField release];
     [_runButton release];
     [_adapter release];
@@ -45,11 +55,32 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     _adapter = [[CCLineRemoteControlAdapter alloc] init];
+    _directoryHistory = [[NSMutableArray alloc] init];
+
+    _headerView = [[UIView alloc] initWithFrame:CGRectZero];
+    _headerView.backgroundColor = [UIColor colorWithRed:0.86 green:0.91 blue:0.94 alpha:1.0];
+    [self.view addSubview:_headerView];
 
     _titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     _titleLabel.backgroundColor = [UIColor clearColor];
-    _titleLabel.font = [UIFont boldSystemFontOfSize:18.0];
-    [self.view addSubview:_titleLabel];
+    _titleLabel.font = [UIFont boldSystemFontOfSize:16.0];
+    [_headerView addSubview:_titleLabel];
+
+    _pathLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    _pathLabel.backgroundColor = [UIColor clearColor];
+    _pathLabel.font = [UIFont systemFontOfSize:11.0];
+    _pathLabel.textColor = [UIColor darkGrayColor];
+    [_headerView addSubview:_pathLabel];
+
+    _directoryBackButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+    [_directoryBackButton setTitle:@"Back" forState:UIControlStateNormal];
+    [_directoryBackButton addTarget:self action:@selector(directoryBack:) forControlEvents:UIControlEventTouchUpInside];
+    _directoryBackButton.hidden = YES;
+    [_headerView addSubview:_directoryBackButton];
+
+    _headerBottomLine = [[UIView alloc] initWithFrame:CGRectZero];
+    _headerBottomLine.backgroundColor = [UIColor colorWithWhite:0.72 alpha:1.0];
+    [_headerView addSubview:_headerBottomLine];
 
     _bodyView = [[UITextView alloc] initWithFrame:CGRectZero];
     _bodyView.editable = NO;
@@ -72,7 +103,7 @@
     _fileBrowserModeControl.selectedSegmentIndex = 0;
     _fileBrowserModeControl.hidden = YES;
     [_fileBrowserModeControl addTarget:self action:@selector(fileBrowserModeChanged:) forControlEvents:UIControlEventValueChanged];
-    [self.view addSubview:_fileBrowserModeControl];
+    [_headerView addSubview:_fileBrowserModeControl];
 
     _promptField = [[UITextField alloc] initWithFrame:CGRectZero];
     _promptField.borderStyle = UITextBorderStyleRoundedRect;
@@ -99,29 +130,41 @@
     CGRect bounds = self.view.bounds;
     CGFloat margin = 18.0;
     CGFloat composerHeight = 44.0;
-    CGFloat titleHeight = 30.0;
+    CGFloat headerHeight = 48.0;
     CGFloat runWidth = 72.0;
     CGFloat bottomInset = _composerVisible ? composerHeight + 22.0 : 14.0;
     CGFloat modeWidth = 156.0;
     BOOL showsFileBrowserMode = !_fileBrowserModeControl.hidden;
+    BOOL showsBackButton = !_directoryBackButton.hidden;
+    CGFloat backWidth = showsBackButton ? 58.0 : 0.0;
+    CGFloat titleX = margin + (showsBackButton ? backWidth + 8.0 : 0.0);
+    CGFloat titleRightInset = margin + (showsFileBrowserMode ? modeWidth + 12.0 : 0.0);
 
-    _titleLabel.frame = CGRectMake(margin,
-                                   12.0,
-                                   bounds.size.width - margin * 2.0 - (showsFileBrowserMode ? modeWidth + 12.0 : 0.0),
-                                   titleHeight);
+    _headerView.frame = CGRectMake(0.0, 0.0, bounds.size.width, headerHeight);
+    _headerBottomLine.frame = CGRectMake(0.0, headerHeight - 1.0, bounds.size.width, 1.0);
+    _directoryBackButton.frame = CGRectMake(margin, 9.0, backWidth, 30.0);
+
+    _titleLabel.frame = CGRectMake(titleX,
+                                   6.0,
+                                   bounds.size.width - titleX - titleRightInset,
+                                   showsFileBrowserMode ? 20.0 : 36.0);
+    _pathLabel.frame = CGRectMake(titleX,
+                                  26.0,
+                                  bounds.size.width - titleX - titleRightInset,
+                                  16.0);
     _bodyView.frame = CGRectMake(margin,
-                                 48.0,
+                                 headerHeight,
                                  bounds.size.width - margin * 2.0,
-                                 bounds.size.height - 48.0 - bottomInset);
+                                 bounds.size.height - headerHeight - bottomInset);
     _messageScrollView.frame = _bodyView.frame;
     _fileBrowserModeControl.frame = CGRectMake(bounds.size.width - margin - modeWidth,
-                                               10.0,
+                                               9.0,
                                                modeWidth,
-                                               titleHeight);
+                                               30.0);
     _fileBrowserScrollView.frame = CGRectMake(margin,
-                                              48.0,
+                                              headerHeight,
                                               bounds.size.width - margin * 2.0,
-                                              bounds.size.height - 48.0 - bottomInset);
+                                              bounds.size.height - headerHeight - bottomInset);
     _promptField.frame = CGRectMake(margin,
                                     bounds.size.height - composerHeight - 10.0,
                                     bounds.size.width - margin * 2.0 - runWidth - 8.0,
@@ -153,6 +196,8 @@
 - (void)showTitle:(NSString *)title body:(NSString *)body items:(NSArray *)items
 {
     _titleLabel.text = title;
+    _pathLabel.text = @"";
+    _directoryBackButton.hidden = YES;
     _bodyView.text = body;
     self.title = title;
 
@@ -560,6 +605,7 @@
 - (void)openDirectoryPath:(NSString *)path title:(NSString *)title
 {
     _titleLabel.text = title;
+    _pathLabel.text = path;
     self.title = title;
     [self clearFileBrowserViews];
     UILabel *loading = [[[UILabel alloc] initWithFrame:CGRectMake(12.0, 12.0, _fileBrowserScrollView.bounds.size.width - 24.0, 24.0)] autorelease];
@@ -632,10 +678,30 @@
     NSString *path = [self pathForEntry:entry];
     NSString *name = [self fileNameForEntry:entry];
     if ([self entryIsDirectory:entry]) {
+        if ([_directoryPath length] > 0) {
+            [_directoryHistory addObject:_directoryPath];
+        }
         [self openDirectoryPath:path title:name];
     } else {
         [self openFilePath:path title:name];
     }
+}
+
+- (void)directoryBack:(id)sender
+{
+    (void)sender;
+    NSString *path = [_directoryHistory lastObject];
+    if ([path length] == 0) {
+        return;
+    }
+    [path retain];
+    [_directoryHistory removeLastObject];
+    NSString *title = [path lastPathComponent];
+    if ([title length] == 0) {
+        title = path;
+    }
+    [self openDirectoryPath:path title:title];
+    [path release];
 }
 
 - (void)addIconItemForEntry:(NSDictionary *)entry index:(NSInteger)index x:(CGFloat)x y:(CGFloat)y width:(CGFloat)width
@@ -745,6 +811,7 @@
 - (void)showDirectoryWithTitle:(NSString *)title path:(NSString *)path entries:(NSArray *)entries
 {
     _titleLabel.text = title;
+    _pathLabel.text = path;
     _bodyView.text = @"";
     self.title = title;
 
@@ -759,6 +826,7 @@
     _messageScrollView.hidden = YES;
     _fileBrowserScrollView.hidden = NO;
     _fileBrowserModeControl.hidden = NO;
+    _directoryBackButton.hidden = [_directoryHistory count] == 0;
     [self setComposerVisible:NO];
     [self layoutFileBrowser];
 }
