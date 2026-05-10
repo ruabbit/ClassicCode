@@ -276,8 +276,10 @@
     if ([operation isEqualToString:CCRemoteControlOperationGetTranscript] &&
         [object isKindOfClass:[NSDictionary class]]) {
         id transcript = [object objectForKey:@"transcriptText"];
-        if ([transcript isKindOfClass:[NSString class]]) {
+        if ([transcript isKindOfClass:[NSString class]] && [transcript length] > 0) {
             result.detail = transcript;
+        } else {
+            result.detail = @"No renderable transcript messages. Restart the ClassicCode bridge if this conversation should contain messages.";
         }
     } else if ([operation isEqualToString:CCRemoteControlOperationReadFile] &&
                [object isKindOfClass:[NSDictionary class]]) {
