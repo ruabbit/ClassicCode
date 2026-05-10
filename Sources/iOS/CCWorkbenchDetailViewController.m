@@ -102,21 +102,26 @@
     CGFloat titleHeight = 30.0;
     CGFloat runWidth = 72.0;
     CGFloat bottomInset = _composerVisible ? composerHeight + 22.0 : 14.0;
+    CGFloat modeWidth = 156.0;
+    BOOL showsFileBrowserMode = !_fileBrowserModeControl.hidden;
 
-    _titleLabel.frame = CGRectMake(margin, 12.0, bounds.size.width - margin * 2.0, titleHeight);
+    _titleLabel.frame = CGRectMake(margin,
+                                   12.0,
+                                   bounds.size.width - margin * 2.0 - (showsFileBrowserMode ? modeWidth + 12.0 : 0.0),
+                                   titleHeight);
     _bodyView.frame = CGRectMake(margin,
                                  48.0,
                                  bounds.size.width - margin * 2.0,
                                  bounds.size.height - 48.0 - bottomInset);
     _messageScrollView.frame = _bodyView.frame;
-    _fileBrowserModeControl.frame = CGRectMake(margin,
-                                               48.0,
-                                               180.0,
-                                               30.0);
+    _fileBrowserModeControl.frame = CGRectMake(bounds.size.width - margin - modeWidth,
+                                               10.0,
+                                               modeWidth,
+                                               titleHeight);
     _fileBrowserScrollView.frame = CGRectMake(margin,
-                                              88.0,
+                                              48.0,
                                               bounds.size.width - margin * 2.0,
-                                              bounds.size.height - 88.0 - bottomInset);
+                                              bounds.size.height - 48.0 - bottomInset);
     _promptField.frame = CGRectMake(margin,
                                     bounds.size.height - composerHeight - 10.0,
                                     bounds.size.width - margin * 2.0 - runWidth - 8.0,
