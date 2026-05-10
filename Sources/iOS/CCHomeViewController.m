@@ -1,6 +1,6 @@
 #import "CCHomeViewController.h"
 #import "CCConnectionProfile.h"
-#import "CCRemoteClient.h"
+#import "CCDiagnosticRemoteControlAdapter.h"
 #import "CCSettingsViewController.h"
 #import "CCWorkbenchViewController.h"
 
@@ -12,7 +12,7 @@
     UILabel *_detailLabel;
     UIButton *_workbenchButton;
     UIButton *_settingsButton;
-    CCRemoteClient *_client;
+    id<CCRemoteControlAdapter> _adapter;
 }
 
 - (void)dealloc
@@ -24,7 +24,7 @@
     [_detailLabel release];
     [_workbenchButton release];
     [_settingsButton release];
-    [_client release];
+    [_adapter release];
     [super dealloc];
 }
 
@@ -33,7 +33,7 @@
     [super viewDidLoad];
     self.title = @"ClassicCode";
     self.view.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1.0];
-    _client = [[CCRemoteClient alloc] init];
+    _adapter = [[CCDiagnosticRemoteControlAdapter alloc] init];
 
     _statusTitleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     _statusTitleLabel.backgroundColor = [UIColor clearColor];
@@ -121,20 +121,17 @@
 - (void)refreshStatus
 {
     [self setStatus:@"Checking" detail:@"Testing the configured remote-control endpoint."];
-    NSString *host = [[CCConnectionProfile host] retain];
-    NSInteger port = [CCConnectionProfile port];
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
         NSError *error = nil;
-        NSString *response = [_client sendCommand:@"INFO" toHost:host port:port timeout:3.0 error:&error];
-        NSString *status = nil;
-        NSString *detail = nil;
-        if ([response length] > 0) {
-            status = @"Connected";
-            detail = response;
-        } else {
+        CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationStatus parameters:nil error:&error];
+        NSString *status = result.summary;
+        NSString *detail = result.detail;
+        if ([status length] == 0) {
             status = @"Disconnected";
+        }
+        if ([detail length] == 0) {
             detail = [error localizedDescription];
         }
         [status retain];
@@ -144,7 +141,6 @@
             [status release];
             [detail release];
         });
-        [host release];
         [pool drain];
     });
 }

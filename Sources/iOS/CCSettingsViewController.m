@@ -1,6 +1,6 @@
 #import "CCSettingsViewController.h"
 #import "CCConnectionProfile.h"
-#import "CCRemoteClient.h"
+#import "CCDiagnosticRemoteControlAdapter.h"
 
 @implementation CCSettingsViewController {
     UIScrollView *_scrollView;
@@ -10,7 +10,7 @@
     UITextField *_workspaceField;
     UILabel *_diagnosticLabel;
     UIButton *_testButton;
-    CCRemoteClient *_client;
+    id<CCRemoteControlAdapter> _adapter;
 }
 
 - (void)dealloc
@@ -22,7 +22,7 @@
     [_workspaceField release];
     [_diagnosticLabel release];
     [_testButton release];
-    [_client release];
+    [_adapter release];
     [super dealloc];
 }
 
@@ -32,7 +32,7 @@
     self.title = @"Settings";
     self.view.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1.0];
     self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave target:self action:@selector(save:)] autorelease];
-    _client = [[CCRemoteClient alloc] init];
+    _adapter = [[CCDiagnosticRemoteControlAdapter alloc] init];
 
     _scrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
     [self.view addSubview:_scrollView];
@@ -122,16 +122,14 @@
     (void)sender;
     [self save:nil];
     _diagnosticLabel.text = @"Testing...";
-    NSString *host = [_hostField.text retain];
-    NSInteger port = [_portField.text integerValue];
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
         NSError *error = nil;
-        NSString *response = [_client sendCommand:@"INFO" toHost:host port:port timeout:5.0 error:&error];
+        CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationStatus parameters:nil error:&error];
         NSString *text = nil;
-        if ([response length] > 0) {
-            text = [NSString stringWithFormat:@"Connected\n%@", response];
+        if ([result.detail length] > 0 && [result.state isEqualToString:@"connected"]) {
+            text = [NSString stringWithFormat:@"%@\n%@", result.summary, result.detail];
         } else {
             text = [NSString stringWithFormat:@"Failed\n%@", [error localizedDescription]];
         }
@@ -140,7 +138,6 @@
             _diagnosticLabel.text = text;
             [text release];
         });
-        [host release];
         [pool drain];
     });
 }

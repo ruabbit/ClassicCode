@@ -15,11 +15,12 @@ IOS_BUNDLE_ID := io.ruabbit.ClassicCodeClient
 MAC_SDK_PATH := $(shell DEVELOPER_DIR="$(DEVELOPER_DIR)" xcodebuild -version -sdk $(MAC_SDK) Path 2>/dev/null)
 IOS_SDK_PATH := $(shell DEVELOPER_DIR="$(DEVELOPER_DIR)" xcodebuild -version -sdk $(IOS_SDK) Path 2>/dev/null)
 
-SHARED_SRCS := Sources/Shared/CCWire.m
+SHARED_SRCS := Sources/Shared/CCWire.m Sources/Shared/CCRemoteControl.m
 HOST_SRCS := Sources/Host/ClassicCodeHost.m $(SHARED_SRCS)
 IOS_SRCS := Sources/iOS/main.m \
 	Sources/iOS/CCAppDelegate.m \
 	Sources/iOS/CCConnectionProfile.m \
+	Sources/iOS/CCDiagnosticRemoteControlAdapter.m \
 	Sources/iOS/CCHomeViewController.m \
 	Sources/iOS/CCRemoteClient.m \
 	Sources/iOS/CCSettingsViewController.m \

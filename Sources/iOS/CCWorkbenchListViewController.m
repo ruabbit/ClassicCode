@@ -1,5 +1,6 @@
 #import "CCWorkbenchListViewController.h"
 #import "CCConnectionProfile.h"
+#import "CCRemoteControl.h"
 
 @implementation CCWorkbenchListViewController {
     NSArray *_titles;
@@ -22,10 +23,10 @@
     _titles = [[NSArray alloc] initWithObjects:@"Overview", @"Sessions", @"Files", @"Logs", @"Tasks", nil];
     _bodies = [[NSArray alloc] initWithObjects:
                [NSString stringWithFormat:@"Connection\n%@\n\nWorkspace\n%@\n\nBackend\nCodex remote-control adapter boundary is not connected yet. The current host shim is only for diagnostics.", [CCConnectionProfile summary], [CCConnectionProfile workspace]],
-               @"Sessions will list Codex remote-control sessions here. The next backend milestone wires this pane to the adapter instead of the diagnostic line protocol.",
-               @"Files will use a left-pane navigator and right-pane code viewer. This keeps code browsing in a master-detail model instead of a vertical stack.",
-               @"Logs will show backend and task output. The list stays on the left; the transcript stays on the right.",
-               @"Tasks will expose Codex remote-control tasks such as build, deploy, cancel, and retry once the backend adapter is available.",
+               [NSString stringWithFormat:@"Planned operation\n%@\n\nSessions will list Codex remote-control sessions here.", CCRemoteControlOperationListSessions],
+               [NSString stringWithFormat:@"Planned operations\n%@\n%@\n\nFiles will use a left-pane navigator and right-pane code viewer.", CCRemoteControlOperationListFiles, CCRemoteControlOperationReadFile],
+               [NSString stringWithFormat:@"Planned operation\n%@\n\nLogs will show backend and task output.", CCRemoteControlOperationTailLogs],
+               [NSString stringWithFormat:@"Planned operations\n%@\n%@\n\nTasks will expose Codex remote-control work once the real backend adapter is available.", CCRemoteControlOperationStartTask, CCRemoteControlOperationCancelTask],
                nil];
 }
 
