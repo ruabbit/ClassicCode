@@ -8,6 +8,7 @@ modern Codex binary.
 """
 
 import argparse
+import base64
 import json
 import os
 import select
@@ -155,6 +156,63 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
     def ok(self, payload):
         self.send_line("OK " + json.dumps(payload, separators=(",", ":")))
 
+    def thread_title(self, thread):
+        name = thread.get("name")
+        if name:
+            return name
+        preview = thread.get("preview") or ""
+        return preview[:80] if preview else thread.get("id", "Conversation")
+
+    def text_from_user_input(self, content):
+        pieces = []
+        for item in content or []:
+            if item.get("type") == "text":
+                pieces.append(item.get("text", ""))
+            elif item.get("type"):
+                pieces.append("[%s]" % item.get("type"))
+        return "\n".join([piece for piece in pieces if piece])
+
+    def transcript_text(self, thread):
+        lines = []
+        lines.append(self.thread_title(thread))
+        lines.append("")
+        for turn in thread.get("turns", []):
+            for item in turn.get("items", []):
+                item_type = item.get("type")
+                if item_type == "userMessage":
+                    lines.append("User")
+                    lines.append(self.text_from_user_input(item.get("content")))
+                    lines.append("")
+                elif item_type == "agentMessage":
+                    lines.append("Assistant")
+                    lines.append(item.get("text", ""))
+                    lines.append("")
+                elif item_type == "commandExecution":
+                    lines.append("Command")
+                    lines.append(item.get("command", ""))
+                    output = item.get("aggregatedOutput")
+                    if output:
+                        lines.append(output)
+                    exit_code = item.get("exitCode")
+                    if exit_code is not None:
+                        lines.append("exit: %s" % exit_code)
+                    lines.append("")
+                elif item_type == "fileChange":
+                    lines.append("File Change")
+                    for change in item.get("changes", []):
+                        lines.append(change.get("path") or change.get("filePath") or str(change))
+                    lines.append("")
+                elif item_type in ("reasoning", "plan"):
+                    text = item.get("text") or "\n".join(item.get("summary", []))
+                    if text:
+                        lines.append(item_type.title())
+                        lines.append(text)
+                        lines.append("")
+                elif item_type:
+                    lines.append("[%s]" % item_type)
+                    lines.append("")
+        return "\n".join(lines).strip()
+
     def handle(self):
         self.send_line("OK ClassicCodeCodexBridge ready")
         while True:
@@ -220,7 +278,11 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
         if command == "GET_TRANSCRIPT":
             if not rest:
                 raise BridgeError("GET_TRANSCRIPT requires a thread id")
-            self.ok(client.request("thread/read", {"threadId": rest, "includeTurns": True}))
+            result = client.request("thread/read", {"threadId": rest, "includeTurns": True})
+            thread = result.get("thread", {})
+            result["title"] = self.thread_title(thread)
+            result["transcriptText"] = self.transcript_text(thread)
+            self.ok(result)
             return False
         if command == "LIST_FILES":
             path = rest or self.server.workspace
@@ -229,15 +291,33 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
         if command == "READ_FILE":
             if not rest:
                 raise BridgeError("READ_FILE requires an absolute path")
-            self.ok(client.request("fs/readFile", {"path": rest}))
+            result = client.request("fs/readFile", {"path": rest})
+            data = base64.b64decode(result.get("dataBase64", ""))
+            limit = 256 * 1024
+            truncated = len(data) > limit
+            sample = data[:limit]
+            try:
+                result["text"] = sample.decode("utf-8")
+                result["encoding"] = "utf-8"
+            except UnicodeDecodeError:
+                result["text"] = ""
+                result["encoding"] = "binary"
+            result["path"] = rest
+            result["truncated"] = truncated
+            self.ok(result)
             return False
         if command == "START_TASK":
             if os.environ.get("CLASSICCODE_ENABLE_TASKS") != "1":
                 raise BridgeError("START_TASK disabled; set CLASSICCODE_ENABLE_TASKS=1")
+            workspace = self.server.workspace
             prompt = rest.strip()
+            if "\t" in rest:
+                workspace, prompt = rest.split("\t", 1)
+                workspace = workspace.strip() or self.server.workspace
+                prompt = prompt.strip()
             if not prompt:
                 raise BridgeError("START_TASK requires a prompt")
-            thread_result = client.request("thread/start", {"cwd": self.server.workspace})
+            thread_result = client.request("thread/start", {"cwd": workspace})
             thread_id = thread_result["thread"]["id"]
             turn_params = {
                 "threadId": thread_id,
@@ -258,7 +338,7 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
             self.ok(client.request("thread/read", {"threadId": rest, "includeTurns": True}))
             return False
         if command == "HELP":
-            self.send_line("OK HELLO PING INFO STATUS LIST_SESSIONS GET_TRANSCRIPT LIST_FILES READ_FILE START_TASK CANCEL_TASK TAIL_LOGS QUIT")
+            self.send_line("OK HELLO PING INFO STATUS LIST_WORKSPACES LIST_SESSIONS GET_TRANSCRIPT LIST_FILES READ_FILE START_TASK CANCEL_TASK TAIL_LOGS QUIT")
             return False
         self.send_line("ERR unknown command")
         return False

@@ -95,13 +95,17 @@
     }
     if ([operation isEqualToString:CCRemoteControlOperationStartTask]) {
         NSString *prompt = [self stringParameter:@"prompt" fromParameters:parameters];
+        NSString *workspace = [self stringParameter:@"workspace" fromParameters:parameters];
+        if ([workspace length] == 0) {
+            workspace = [CCConnectionProfile workspace];
+        }
         if ([prompt length] == 0) {
             if (error != NULL) {
                 *error = [self errorWithMessage:@"start-task requires prompt"];
             }
             return nil;
         }
-        return [@"START_TASK " stringByAppendingString:prompt];
+        return [NSString stringWithFormat:@"START_TASK %@\t%@", workspace, prompt];
     }
     if ([operation isEqualToString:CCRemoteControlOperationCancelTask]) {
         NSString *threadID = [self stringParameter:@"threadId" fromParameters:parameters];
@@ -204,6 +208,15 @@
     if ([operation isEqualToString:CCRemoteControlOperationStatus]) {
         return @"Connected";
     }
+    if ([operation isEqualToString:CCRemoteControlOperationGetTranscript]) {
+        return @"Transcript";
+    }
+    if ([operation isEqualToString:CCRemoteControlOperationReadFile]) {
+        return @"File";
+    }
+    if ([operation isEqualToString:CCRemoteControlOperationStartTask]) {
+        return @"Task";
+    }
     return @"OK";
 }
 
@@ -253,6 +266,22 @@
                                                                          state:@"connected"
                                                                        summary:[self summaryForOperation:operation object:object]
                                                                         detail:[self prettyStringForObject:object]];
+    if ([operation isEqualToString:CCRemoteControlOperationGetTranscript] &&
+        [object isKindOfClass:[NSDictionary class]]) {
+        id transcript = [object objectForKey:@"transcriptText"];
+        if ([transcript isKindOfClass:[NSString class]]) {
+            result.detail = transcript;
+        }
+    } else if ([operation isEqualToString:CCRemoteControlOperationReadFile] &&
+               [object isKindOfClass:[NSDictionary class]]) {
+        id text = [object objectForKey:@"text"];
+        id encoding = [object objectForKey:@"encoding"];
+        if ([text isKindOfClass:[NSString class]] && [text length] > 0) {
+            result.detail = text;
+        } else if ([encoding isKindOfClass:[NSString class]] && [encoding isEqualToString:@"binary"]) {
+            result.detail = @"Binary file cannot be displayed.";
+        }
+    }
     result.items = [self itemsForOperation:operation object:object];
     return result;
 }

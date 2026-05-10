@@ -3,9 +3,16 @@
 #import "CCLineRemoteControlAdapter.h"
 #import "CCRemoteControl.h"
 
+enum {
+    CCWorkbenchSectionConversations = 0,
+    CCWorkbenchSectionFiles = 1,
+    CCWorkbenchSectionCount = 2
+};
+
 @implementation CCWorkbenchListViewController {
-    NSArray *_titles;
-    NSArray *_bodies;
+    NSArray *_conversations;
+    NSArray *_files;
+    NSString *_currentPath;
     id<CCRemoteControlAdapter> _adapter;
 }
 
@@ -13,8 +20,9 @@
 
 - (void)dealloc
 {
-    [_titles release];
-    [_bodies release];
+    [_conversations release];
+    [_files release];
+    [_currentPath release];
     [_adapter release];
     [super dealloc];
 }
@@ -22,106 +30,199 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.title = @"Workbench";
     _adapter = [[CCLineRemoteControlAdapter alloc] init];
-    _titles = [[NSArray alloc] initWithObjects:@"Overview", @"Sessions", @"Files", @"Logs", @"Tasks", nil];
-    _bodies = [[NSArray alloc] initWithObjects:
-               [NSString stringWithFormat:@"Connection\n%@\n\nWorkspace\n%@\n\nBackend\nCodex remote-control adapter boundary is not connected yet. The current host shim is only for diagnostics.", [CCConnectionProfile summary], [CCConnectionProfile workspace]],
-               [NSString stringWithFormat:@"Planned operation\n%@\n\nSessions will list Codex remote-control sessions here.", CCRemoteControlOperationListSessions],
-               [NSString stringWithFormat:@"Planned operations\n%@\n%@\n\nFiles will use a left-pane navigator and right-pane code viewer.", CCRemoteControlOperationListFiles, CCRemoteControlOperationReadFile],
-               [NSString stringWithFormat:@"Planned operation\n%@\n\nLogs will show backend and task output.", CCRemoteControlOperationTailLogs],
-               [NSString stringWithFormat:@"Planned operations\n%@\n%@\n\nTasks will expose Codex remote-control work once the real backend adapter is available.", CCRemoteControlOperationStartTask, CCRemoteControlOperationCancelTask],
-               nil];
+    _conversations = [[NSArray alloc] init];
+    _files = [[NSArray alloc] init];
+    _currentPath = [[CCConnectionProfile workspace] retain];
+    self.title = [self workspaceTitle];
+    self.tableView.rowHeight = 52.0;
+    self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refresh:)] autorelease];
+    [self loadWorkspaceObjects];
 }
 
-- (NSString *)operationForTitle:(NSString *)title
+- (NSString *)workspaceTitle
 {
-    if ([title isEqualToString:@"Overview"]) {
-        return CCRemoteControlOperationStatus;
-    }
-    if ([title isEqualToString:@"Sessions"]) {
-        return CCRemoteControlOperationListSessions;
-    }
-    if ([title isEqualToString:@"Files"]) {
-        return CCRemoteControlOperationListFiles;
-    }
-    return nil;
+    NSString *workspace = [CCConnectionProfile workspace];
+    NSString *last = [workspace lastPathComponent];
+    return [last length] > 0 ? last : workspace;
 }
 
-- (NSDictionary *)parametersForOperation:(NSString *)operation
+- (NSString *)filePathForEntry:(NSDictionary *)entry
 {
-    if ([operation isEqualToString:CCRemoteControlOperationListFiles]) {
-        return [NSDictionary dictionaryWithObject:[CCConnectionProfile workspace] forKey:@"path"];
+    NSString *name = [self stringValue:[entry objectForKey:@"fileName"]];
+    if ([name length] == 0) {
+        return _currentPath;
     }
-    return nil;
+    return [_currentPath stringByAppendingPathComponent:name];
 }
 
-- (NSString *)formattedSessions:(NSArray *)items
+- (NSString *)conversationTitle:(NSDictionary *)thread
 {
-    NSMutableString *body = [NSMutableString string];
-    NSUInteger index = 1;
-    for (id item in items) {
-        if (![item isKindOfClass:[NSDictionary class]]) {
-            continue;
+    id rawName = [thread objectForKey:@"name"];
+    NSString *name = [rawName isKindOfClass:[NSString class]] ? rawName : nil;
+    if ([name length] == 0) {
+        name = [thread objectForKey:@"preview"];
+    }
+    if ([name length] == 0) {
+        name = [thread objectForKey:@"id"];
+    }
+    return name;
+}
+
+- (NSString *)stringValue:(id)value
+{
+    if ([value isKindOfClass:[NSString class]]) {
+        return value;
+    }
+    return @"";
+}
+
+- (void)setConversations:(NSArray *)conversations files:(NSArray *)files
+{
+    [_conversations release];
+    _conversations = [conversations retain];
+    [_files release];
+    _files = [files retain];
+    [self.tableView reloadData];
+}
+
+- (void)loadWorkspaceObjects
+{
+    NSString *workspace = [CCConnectionProfile workspace];
+    NSString *path = _currentPath;
+    self.title = [self workspaceTitle];
+    [_delegate workbenchListDidSelectTitle:self.title body:@"Loading workspace..."];
+    [workspace retain];
+    [path retain];
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        NSDictionary *sessionParams = [NSDictionary dictionaryWithObject:workspace forKey:@"workspace"];
+        NSDictionary *fileParams = [NSDictionary dictionaryWithObject:path forKey:@"path"];
+        NSError *sessionError = nil;
+        NSError *fileError = nil;
+        CCRemoteControlResult *sessionResult = [_adapter performOperation:CCRemoteControlOperationListSessions parameters:sessionParams error:&sessionError];
+        CCRemoteControlResult *fileResult = [_adapter performOperation:CCRemoteControlOperationListFiles parameters:fileParams error:&fileError];
+        NSArray *conversations = sessionResult.items;
+        NSArray *files = fileResult.items;
+        NSString *body = nil;
+        if ([sessionResult.state isEqualToString:@"connected"] || [fileResult.state isEqualToString:@"connected"]) {
+            body = [NSString stringWithFormat:@"%@\n\n%lu conversations\n%lu files/directories",
+                    workspace,
+                    (unsigned long)[conversations count],
+                    (unsigned long)[files count]];
+        } else {
+            body = [NSString stringWithFormat:@"Could not load workspace.\n\n%@\n%@",
+                    [sessionError localizedDescription],
+                    [fileError localizedDescription]];
         }
-        NSDictionary *thread = (NSDictionary *)item;
-        id rawName = [thread objectForKey:@"name"];
-        NSString *name = [rawName isKindOfClass:[NSString class]] ? rawName : nil;
-        if ([name length] == 0) {
-            name = [thread objectForKey:@"preview"];
-        }
-        NSString *threadID = [thread objectForKey:@"id"];
-        NSString *cwd = [thread objectForKey:@"cwd"];
-        [body appendFormat:@"%lu. %@\n", (unsigned long)index, name];
-        [body appendFormat:@"   id: %@\n", threadID];
-        [body appendFormat:@"   cwd: %@\n\n", cwd];
-        index++;
-    }
-    if ([body length] == 0) {
-        [body appendString:@"No sessions returned."];
-    }
-    return body;
+        [conversations retain];
+        [files retain];
+        [body retain];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self setConversations:conversations files:files];
+            [_delegate workbenchListDidSelectTitle:self.title body:body];
+            [conversations release];
+            [files release];
+            [body release];
+            [workspace release];
+            [path release];
+        });
+        [pool drain];
+    });
 }
 
-- (NSString *)formattedFiles:(NSArray *)items
+- (void)refresh:(id)sender
 {
-    NSMutableString *body = [NSMutableString stringWithFormat:@"%@\n\n", [CCConnectionProfile workspace]];
-    for (id item in items) {
-        if (![item isKindOfClass:[NSDictionary class]]) {
-            continue;
-        }
-        NSDictionary *entry = (NSDictionary *)item;
-        NSString *name = [entry objectForKey:@"fileName"];
-        BOOL isDirectory = [[entry objectForKey:@"isDirectory"] boolValue];
-        [body appendFormat:@"%@ %@\n", isDirectory ? @"[dir] " : @"      ", name];
-    }
-    return body;
+    (void)sender;
+    [self loadWorkspaceObjects];
 }
 
-- (NSString *)bodyForResult:(CCRemoteControlResult *)result title:(NSString *)title error:(NSError *)error
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-    if (result == nil) {
-        return [error localizedDescription];
-    }
-    if ([title isEqualToString:@"Sessions"]) {
-        return [self formattedSessions:result.items];
-    }
-    if ([title isEqualToString:@"Files"]) {
-        return [self formattedFiles:result.items];
-    }
-    return result.detail;
+    (void)tableView;
+    return CCWorkbenchSectionCount;
 }
 
-- (void)loadRemoteTitle:(NSString *)title operation:(NSString *)operation
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    NSDictionary *parameters = [self parametersForOperation:operation];
+    (void)tableView;
+    if (section == CCWorkbenchSectionConversations) {
+        return @"Conversations";
+    }
+    return _currentPath;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    (void)tableView;
+    if (section == CCWorkbenchSectionConversations) {
+        return [_conversations count];
+    }
+    NSInteger count = [_files count];
+    if (![_currentPath isEqualToString:[CCConnectionProfile workspace]]) {
+        count++;
+    }
+    return count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    static NSString *cellID = @"WorkbenchObjectCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
+    if (cell == nil) {
+        cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellID] autorelease];
+    }
+
+    cell.detailTextLabel.text = nil;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+
+    if (indexPath.section == CCWorkbenchSectionConversations) {
+        NSDictionary *thread = [_conversations objectAtIndex:(NSUInteger)indexPath.row];
+        cell.textLabel.text = [self conversationTitle:thread];
+        cell.detailTextLabel.text = [self stringValue:[thread objectForKey:@"id"]];
+        return cell;
+    }
+
+    BOOL hasParentRow = ![_currentPath isEqualToString:[CCConnectionProfile workspace]];
+    if (hasParentRow && indexPath.row == 0) {
+        cell.textLabel.text = @"..";
+        cell.detailTextLabel.text = [_currentPath stringByDeletingLastPathComponent];
+        return cell;
+    }
+
+    NSInteger fileIndex = indexPath.row - (hasParentRow ? 1 : 0);
+    NSDictionary *entry = [_files objectAtIndex:(NSUInteger)fileIndex];
+    NSString *name = [self stringValue:[entry objectForKey:@"fileName"]];
+    BOOL isDirectory = [[entry objectForKey:@"isDirectory"] boolValue];
+    cell.textLabel.text = name;
+    cell.detailTextLabel.text = isDirectory ? @"Directory" : @"File";
+    return cell;
+}
+
+- (void)showLoadingTitle:(NSString *)title
+{
     [_delegate workbenchListDidSelectTitle:title body:@"Loading..."];
+}
+
+- (void)openConversation:(NSDictionary *)thread
+{
+    NSString *threadID = [self stringValue:[thread objectForKey:@"id"]];
+    if ([threadID length] == 0) {
+        return;
+    }
+    NSString *title = [self conversationTitle:thread];
+    [self showLoadingTitle:title];
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
         NSError *error = nil;
-        CCRemoteControlResult *result = [_adapter performOperation:operation parameters:parameters error:&error];
-        NSString *body = [self bodyForResult:result title:title error:error];
+        NSDictionary *params = [NSDictionary dictionaryWithObject:threadID forKey:@"threadId"];
+        CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationGetTranscript parameters:params error:&error];
+        NSString *body = result.detail;
+        if ([body length] == 0) {
+            body = [error localizedDescription];
+        }
         [title retain];
         [body retain];
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -133,35 +234,55 @@
     });
 }
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+- (void)openFileAtPath:(NSString *)path title:(NSString *)title
 {
-    (void)tableView;
-    (void)section;
-    return [_titles count];
-}
+    [self showLoadingTitle:title];
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    static NSString *cellID = @"WorkbenchCell";
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
-    if (cell == nil) {
-        cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellID] autorelease];
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    }
-    cell.textLabel.text = [_titles objectAtIndex:(NSUInteger)indexPath.row];
-    return cell;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        NSError *error = nil;
+        NSDictionary *params = [NSDictionary dictionaryWithObject:path forKey:@"path"];
+        CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationReadFile parameters:params error:&error];
+        NSString *body = result.detail;
+        if ([body length] == 0) {
+            body = [error localizedDescription];
+        }
+        [title retain];
+        [body retain];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [_delegate workbenchListDidSelectTitle:title body:body];
+            [title release];
+            [body release];
+        });
+        [pool drain];
+    });
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    NSString *title = [_titles objectAtIndex:(NSUInteger)indexPath.row];
-    NSString *operation = [self operationForTitle:title];
-    if (operation != nil) {
-        [self loadRemoteTitle:title operation:operation];
+    if (indexPath.section == CCWorkbenchSectionConversations) {
+        [self openConversation:[_conversations objectAtIndex:(NSUInteger)indexPath.row]];
+        return;
+    }
+
+    BOOL hasParentRow = ![_currentPath isEqualToString:[CCConnectionProfile workspace]];
+    if (hasParentRow && indexPath.row == 0) {
+        [_currentPath release];
+        _currentPath = [[_currentPath stringByDeletingLastPathComponent] retain];
+        [self loadWorkspaceObjects];
+        return;
+    }
+
+    NSInteger fileIndex = indexPath.row - (hasParentRow ? 1 : 0);
+    NSDictionary *entry = [_files objectAtIndex:(NSUInteger)fileIndex];
+    NSString *path = [self filePathForEntry:entry];
+    if ([[entry objectForKey:@"isDirectory"] boolValue]) {
+        [_currentPath release];
+        _currentPath = [path retain];
+        [self loadWorkspaceObjects];
     } else {
-        NSString *body = [_bodies objectAtIndex:(NSUInteger)indexPath.row];
-        [_delegate workbenchListDidSelectTitle:title body:body];
+        [self openFileAtPath:path title:[entry objectForKey:@"fileName"]];
     }
 }
 
