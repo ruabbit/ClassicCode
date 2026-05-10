@@ -269,19 +269,24 @@
                                                    detail:[localError localizedDescription]];
     }
 
+    NSString *detail = [self prettyStringForObject:object];
+    if ([operation isEqualToString:CCRemoteControlOperationGetTranscript]) {
+        detail = @"Invalid transcript response.";
+        if ([object isKindOfClass:[NSDictionary class]]) {
+            id transcript = [object objectForKey:@"transcriptText"];
+            if ([transcript isKindOfClass:[NSString class]] && [transcript length] > 0) {
+                detail = transcript;
+            } else {
+                detail = @"No renderable transcript messages. Restart the ClassicCode bridge if this conversation should contain messages.";
+            }
+        }
+    }
+
     CCRemoteControlResult *result = [CCRemoteControlResult resultWithOperation:operation
                                                                          state:@"connected"
                                                                        summary:[self summaryForOperation:operation object:object]
-                                                                        detail:[self prettyStringForObject:object]];
-    if ([operation isEqualToString:CCRemoteControlOperationGetTranscript] &&
-        [object isKindOfClass:[NSDictionary class]]) {
-        id transcript = [object objectForKey:@"transcriptText"];
-        if ([transcript isKindOfClass:[NSString class]] && [transcript length] > 0) {
-            result.detail = transcript;
-        } else {
-            result.detail = @"No renderable transcript messages. Restart the ClassicCode bridge if this conversation should contain messages.";
-        }
-    } else if ([operation isEqualToString:CCRemoteControlOperationReadFile] &&
+                                                                        detail:detail];
+    if ([operation isEqualToString:CCRemoteControlOperationReadFile] &&
                [object isKindOfClass:[NSDictionary class]]) {
         id text = [object objectForKey:@"text"];
         id encoding = [object objectForKey:@"encoding"];

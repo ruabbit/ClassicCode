@@ -292,10 +292,12 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
                 raise BridgeError("GET_TRANSCRIPT requires a thread id")
             result = client.request("thread/read", {"threadId": rest, "includeTurns": True})
             thread = result.get("thread", {})
-            result["title"] = self.thread_title(thread)
-            result["transcriptItems"] = self.transcript_items(thread)
-            result["transcriptText"] = self.transcript_text(thread)
-            self.ok(result)
+            self.ok({
+                "threadId": thread.get("id") or rest,
+                "title": self.thread_title(thread),
+                "transcriptItems": self.transcript_items(thread),
+                "transcriptText": self.transcript_text(thread),
+            })
             return False
         if command == "LIST_FILES":
             path = rest or self.server.workspace
