@@ -23,7 +23,7 @@ fi
 cd '$REMOTE_DIR'
 git remote set-url origin '$REPO_URL'
 git fetch origin '$REMOTE_BRANCH'
-git checkout '$REMOTE_BRANCH' >/dev/null 2>&1 || git checkout -b '$REMOTE_BRANCH' 'origin/$REMOTE_BRANCH'
-git reset --hard 'origin/$REMOTE_BRANCH'
+git checkout '$REMOTE_BRANCH' >/dev/null 2>&1 || git checkout -b '$REMOTE_BRANCH'
+git reset --hard FETCH_HEAD
 make clean all
 "
