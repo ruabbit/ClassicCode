@@ -5,7 +5,7 @@ BUILD_HOST=${BUILD_HOST:-classiccode-mac109}
 REMOTE_DIR=${REMOTE_DIR:-ClassicCode}
 IOS_DEVICE_HOST=${IOS_DEVICE_HOST:-classiccode-ipad6-via-local}
 REMOTE_BRANCH=${REMOTE_BRANCH:-main}
-REPO_URL=${REPO_URL:-https://github.com/ruabbit/ClassicCode.git}
+REPO_URL=${REPO_URL:-git@github.com:ruabbit/ClassicCode.git}
 REMOTE_GIT_SSL_NO_VERIFY=${REMOTE_GIT_SSL_NO_VERIFY:-1}
 
 cd "$(dirname "$0")/.."
