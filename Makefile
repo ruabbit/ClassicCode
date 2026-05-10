@@ -17,7 +17,16 @@ IOS_SDK_PATH := $(shell DEVELOPER_DIR="$(DEVELOPER_DIR)" xcodebuild -version -sd
 
 SHARED_SRCS := Sources/Shared/CCWire.m
 HOST_SRCS := Sources/Host/ClassicCodeHost.m $(SHARED_SRCS)
-IOS_SRCS := Sources/iOS/main.m Sources/iOS/CCAppDelegate.m Sources/iOS/CCRemoteClient.m $(SHARED_SRCS)
+IOS_SRCS := Sources/iOS/main.m \
+	Sources/iOS/CCAppDelegate.m \
+	Sources/iOS/CCConnectionProfile.m \
+	Sources/iOS/CCHomeViewController.m \
+	Sources/iOS/CCRemoteClient.m \
+	Sources/iOS/CCSettingsViewController.m \
+	Sources/iOS/CCWorkbenchDetailViewController.m \
+	Sources/iOS/CCWorkbenchListViewController.m \
+	Sources/iOS/CCWorkbenchViewController.m \
+	$(SHARED_SRCS)
 
 HOST_OBJS := $(patsubst %.m,$(BUILD_DIR)/macosx/obj/%.o,$(HOST_SRCS))
 IOS_OBJS := $(patsubst %.m,$(BUILD_DIR)/iphoneos/obj/%.o,$(IOS_SRCS))
