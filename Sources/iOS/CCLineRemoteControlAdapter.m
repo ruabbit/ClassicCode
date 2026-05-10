@@ -190,6 +190,13 @@
             return entries;
         }
     }
+    if ([operation isEqualToString:CCRemoteControlOperationGetTranscript] &&
+        [object isKindOfClass:[NSDictionary class]]) {
+        id transcriptItems = [object objectForKey:@"transcriptItems"];
+        if ([transcriptItems isKindOfClass:[NSArray class]]) {
+            return transcriptItems;
+        }
+    }
     return [NSArray array];
 }
 

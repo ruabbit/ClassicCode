@@ -58,12 +58,17 @@
 
 - (void)workbenchListDidSelectTitle:(NSString *)title body:(NSString *)body
 {
+    [self workbenchListDidSelectTitle:title body:body items:nil];
+}
+
+- (void)workbenchListDidSelectTitle:(NSString *)title body:(NSString *)body items:(NSArray *)items
+{
     if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-        [_detailController showTitle:title body:body];
+        [_detailController showTitle:title body:body items:items];
     } else {
         CCWorkbenchDetailViewController *detail = [[[CCWorkbenchDetailViewController alloc] init] autorelease];
         [self.navigationController pushViewController:detail animated:YES];
-        [detail showTitle:title body:body];
+        [detail showTitle:title body:body items:items];
     }
 }
 

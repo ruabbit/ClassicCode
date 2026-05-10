@@ -176,42 +176,54 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
         lines = []
         lines.append(self.thread_title(thread))
         lines.append("")
+        for item in self.transcript_items(thread):
+            title = item.get("title") or item.get("role") or "Item"
+            lines.append(title)
+            lines.append(item.get("text", ""))
+            lines.append("")
+        return "\n".join(lines).strip()
+
+    def transcript_items(self, thread):
+        blocks = []
         for turn in thread.get("turns", []):
             for item in turn.get("items", []):
                 item_type = item.get("type")
                 if item_type == "userMessage":
-                    lines.append("User")
-                    lines.append(self.text_from_user_input(item.get("content")))
-                    lines.append("")
+                    text = self.text_from_user_input(item.get("content"))
+                    if text:
+                        blocks.append({"role": "user", "title": "User", "text": text})
                 elif item_type == "agentMessage":
-                    lines.append("Assistant")
-                    lines.append(item.get("text", ""))
-                    lines.append("")
+                    text = item.get("text", "")
+                    if text:
+                        blocks.append({"role": "assistant", "title": "Assistant", "text": text})
                 elif item_type == "commandExecution":
-                    lines.append("Command")
-                    lines.append(item.get("command", ""))
+                    pieces = []
+                    command = item.get("command")
+                    if command:
+                        pieces.append(command)
                     output = item.get("aggregatedOutput")
                     if output:
-                        lines.append(output)
+                        pieces.append(output)
                     exit_code = item.get("exitCode")
                     if exit_code is not None:
-                        lines.append("exit: %s" % exit_code)
-                    lines.append("")
+                        pieces.append("exit: %s" % exit_code)
+                    blocks.append({"role": "tool", "title": "Command", "text": "\n".join(pieces)})
                 elif item_type == "fileChange":
-                    lines.append("File Change")
+                    lines = []
                     for change in item.get("changes", []):
                         lines.append(change.get("path") or change.get("filePath") or str(change))
-                    lines.append("")
-                elif item_type in ("reasoning", "plan"):
-                    text = item.get("text") or "\n".join(item.get("summary", []))
+                    blocks.append({"role": "tool", "title": "File Change", "text": "\n".join(lines)})
+                elif item_type == "plan":
+                    text = item.get("text", "")
                     if text:
-                        lines.append(item_type.title())
-                        lines.append(text)
-                        lines.append("")
+                        blocks.append({"role": "assistant", "title": "Plan", "text": text})
+                elif item_type == "reasoning":
+                    text = "\n".join(item.get("summary", []) or item.get("content", []))
+                    if text:
+                        blocks.append({"role": "assistant", "title": "Reasoning", "text": text})
                 elif item_type:
-                    lines.append("[%s]" % item_type)
-                    lines.append("")
-        return "\n".join(lines).strip()
+                    blocks.append({"role": "tool", "title": item_type, "text": ""})
+        return blocks
 
     def handle(self):
         self.send_line("OK ClassicCodeCodexBridge ready")
@@ -281,6 +293,7 @@ class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
             result = client.request("thread/read", {"threadId": rest, "includeTurns": True})
             thread = result.get("thread", {})
             result["title"] = self.thread_title(thread)
+            result["transcriptItems"] = self.transcript_items(thread)
             result["transcriptText"] = self.transcript_text(thread)
             self.ok(result)
             return False

@@ -74,7 +74,7 @@ $(BUILD_DIR)/macosx/$(HOST_NAME): $(HOST_OBJS)
 $(BUILD_DIR)/iphoneos/$(IOS_APP_NAME).app: $(IOS_OBJS) Resources/iOS/Info.plist
 	@rm -rf "$@"
 	@mkdir -p "$@"
-	$(IOS_CC) $(IOS_CFLAGS) $(IOS_OBJS) -framework UIKit -framework Foundation -framework CoreGraphics -o "$@/$(IOS_APP_NAME)"
+	$(IOS_CC) $(IOS_CFLAGS) $(IOS_OBJS) -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -o "$@/$(IOS_APP_NAME)"
 	@cp Resources/iOS/Info.plist "$@/Info.plist"
 	@chmod 755 "$@/$(IOS_APP_NAME)"
 	@if command -v ldid >/dev/null 2>&1; then ldid -S "$@/$(IOS_APP_NAME)"; else echo "ldid not found; leaving iOS binary unsigned"; fi

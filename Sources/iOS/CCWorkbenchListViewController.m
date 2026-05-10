@@ -220,15 +220,18 @@ enum {
         NSDictionary *params = [NSDictionary dictionaryWithObject:threadID forKey:@"threadId"];
         CCRemoteControlResult *result = [_adapter performOperation:CCRemoteControlOperationGetTranscript parameters:params error:&error];
         NSString *body = result.detail;
+        NSArray *items = result.items;
         if ([body length] == 0) {
             body = [error localizedDescription];
         }
         [title retain];
         [body retain];
+        [items retain];
         dispatch_async(dispatch_get_main_queue(), ^{
-            [_delegate workbenchListDidSelectTitle:title body:body];
+            [_delegate workbenchListDidSelectTitle:title body:body items:items];
             [title release];
             [body release];
+            [items release];
         });
         [pool drain];
     });
