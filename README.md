@@ -8,10 +8,13 @@ ClassicCode is a small remote-control skeleton for old Apple targets:
 
 The current tree is a buildable foundation, not a finished remote-control product.
 
+The implementation plan and backend boundary live in [docs/implementation-plan.md](docs/implementation-plan.md). In short: the long-term backend is `codex remote-control`; the current `ClassicCodeHost` is a temporary compatibility shim for old-platform build, deployment, transport, and UI smoke tests.
+
 ## Layout
 
 ```text
 Makefile
+docs/implementation-plan.md
 Resources/iOS/Info.plist
 Sources/Host/ClassicCodeHost.m
 Sources/Shared/CCWire.h
