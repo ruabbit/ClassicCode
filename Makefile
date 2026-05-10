@@ -84,7 +84,14 @@ run-host: host
 
 deploy-ios: ios
 	scp -r "$(BUILD_DIR)/iphoneos/$(IOS_APP_NAME).app" "$(IOS_DEVICE_HOST):/tmp/$(IOS_APP_NAME).app"
-	ssh "$(IOS_DEVICE_HOST)" 'rm -rf /Applications/$(IOS_APP_NAME).app && mv /tmp/$(IOS_APP_NAME).app /Applications/$(IOS_APP_NAME).app && chown -R root:wheel /Applications/$(IOS_APP_NAME).app && chmod -R go+rX /Applications/$(IOS_APP_NAME).app && (command -v ldid >/dev/null 2>&1 && ldid -S /Applications/$(IOS_APP_NAME).app/$(IOS_APP_NAME) || true) && (if command -v uicache >/dev/null 2>&1; then su mobile -c uicache 2>/dev/null || uicache || true; fi)'
+	ssh "$(IOS_DEVICE_HOST)" '\
+		killall $(IOS_APP_NAME) 2>/dev/null || true; \
+		rm -rf /Applications/$(IOS_APP_NAME).app && \
+		mv /tmp/$(IOS_APP_NAME).app /Applications/$(IOS_APP_NAME).app && \
+		chown -R root:wheel /Applications/$(IOS_APP_NAME).app && \
+		chmod -R go+rX /Applications/$(IOS_APP_NAME).app && \
+		(command -v ldid >/dev/null 2>&1 && ldid -S /Applications/$(IOS_APP_NAME).app/$(IOS_APP_NAME) || true) && \
+		(if command -v uicache >/dev/null 2>&1; then su mobile -c uicache 2>/dev/null || uicache || true; fi)'
 
 clean:
 	rm -rf "$(BUILD_DIR)"
