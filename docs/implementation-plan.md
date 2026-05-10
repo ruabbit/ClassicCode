@@ -87,16 +87,61 @@ The home workspace list is populated from Codex sessions through the bridge. Set
 
 ### Information Layout
 
-Code, transcripts, logs, sessions, and file trees are high-density information views. The primary workbench should use a master-detail layout:
+Code, transcripts, command output, file changes, and workspace navigation are high-density information views. The primary workbench should follow the Codex App information model observed from the running desktop app:
 
-- left pane: navigation/object list,
-- right pane: selected content.
+- narrow global rail where practical: new conversation, search, settings, and other global entry points,
+- left pane: project/workspace navigation and conversation list,
+- right pane: selected conversation transcript or file content,
+- bottom composer: task prompt input and run controls,
+- inline content blocks: tool output, shell commands, diffs, logs, and task state appear inside the transcript/detail, not as primary navigation.
 
-On iPad landscape this should be a persistent split view. On narrow/portrait layouts it can collapse into a navigation stack, but the information model remains master-detail.
+On iPad landscape this should be a persistent split view. On narrow/portrait layouts it can collapse into a navigation stack, but the information model remains project/conversation/file browser plus detail.
 
 Avoid a vertical stack where the user loses navigation context while reading code or transcript content.
 
+Avoid exposing backend implementation categories as UI destinations. In particular, do not present `Overview`, `Sessions`, `Files`, `Logs`, and `Tasks` as top-level Workbench menu items. Those are backend capabilities or implementation buckets, not user-facing objects.
+
+The user-facing objects are:
+
+- workspace/project,
+- conversation/thread,
+- file/directory,
+- current task/turn,
+- transcript item,
+- command/tool/diff block inside a transcript.
+
 ## Milestones
+
+### Immediate Next Phase: Workbench Rebuild
+
+Purpose: replace the current operation-bucket Workbench with a Codex-App-like workspace browser.
+
+The existing Workbench prototype is only useful as protocol smoke-test UI. It must be replaced rather than extended.
+
+Required changes:
+
+- Remove the top-level `Overview`, `Sessions`, `Files`, `Logs`, and `Tasks` rows.
+- Left pane becomes a browser for the active workspace:
+  - header shows current workspace/project,
+  - conversation rows are loaded directly from `thread/list` filtered by workspace,
+  - file/directory rows are loaded from `fs/readDirectory`,
+  - directory rows can be opened,
+  - file rows open file contents through `fs/readFile`.
+- Right pane becomes the selected object detail:
+  - conversation transcript from `thread/read`,
+  - code/file viewer from `fs/readFile`,
+  - task transcript and command/tool output as inline blocks.
+- Add a bottom composer or toolbar input for starting a task in the active workspace.
+- Keep logs and task state as transcript/detail content, not as left-pane menu categories.
+
+Verification:
+
+- With bridge running, Home lists workspaces and selecting `ClassicCode` causes Workbench to show ClassicCode conversations directly.
+- Selecting a conversation opens a readable transcript in the right pane.
+- Selecting a directory changes/expands file navigation; selecting a file opens readable code.
+- No top-level `Overview`, `Sessions`, `Files`, `Logs`, or `Tasks` operation menu remains.
+- `scripts/build-on-10.9.sh`
+- `scripts/deploy-ios6-app.sh`
 
 ### Milestone 1: UI Shell Rework
 
@@ -107,15 +152,16 @@ Deliverables:
 - Move connection editing out of the home screen.
 - Add a Settings screen for connection profiles.
 - Store connection settings in `NSUserDefaults`.
-- Home screen shows status only and gives access to Settings and Workbench.
+- Settings manages endpoint only: display name, host, and port.
+- Home shows compact connection state and lets the user select the active workspace.
 - Add an iPad-oriented split-view Workbench.
-- Left pane starts with:
-  - Overview
-  - Sessions
-  - Files
-  - Logs
-  - Tasks
-- Right pane displays the selected object.
+- Left pane should show real user objects, not operation buckets:
+  - current workspace/project,
+  - conversation rows,
+  - file/directory rows.
+- Right pane displays the selected conversation transcript or file content.
+- Bottom/right composer provides task input and run controls.
+- Logs, command output, tool output, and diffs appear inline in transcript/task detail.
 - Keep `HELLO`/`PING`/`INFO` as internal diagnostics, not as the main user workflow.
 
 Verification:
@@ -210,14 +256,15 @@ Purpose: expose backend work without turning the app into a terminal-only UI.
 
 Deliverables:
 
-- Task status summary on Home.
-- Task list in Workbench left pane.
+- Task status summary near the active conversation/detail, not as a top-level `Tasks` menu.
+- Composer/input row in Workbench for starting a task in the active workspace.
 - Detail view with:
   - command/task title,
   - state,
   - transcript/log output,
   - exit code,
   - cancel/retry where supported.
+- Starting a task should create or update a conversation row and switch the detail pane to the live transcript.
 - Avoid exposing raw host/port/protocol commands in primary UI.
 
 Verification:
@@ -233,9 +280,12 @@ Purpose: make the app useful for reading and navigating context.
 
 Deliverables:
 
-- Left-pane file/session navigation.
+- Left-pane conversation and file navigation.
+- Conversation rows are direct objects, not hidden behind a `Sessions` page.
+- Directory rows are navigable; file rows open content in the detail pane.
 - Right-pane code viewer.
 - Right-pane transcript viewer.
+- Transcript renderer should distinguish user, assistant, command/tool output, diff/file-change, and errors as separate readable blocks.
 - Basic search or jump affordance if feasible on iOS 6.
 - Preserve readable typography and stable layout on iPad mini.
 
