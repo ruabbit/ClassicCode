@@ -23,8 +23,8 @@ if [ ! -d '$REMOTE_DIR/.git' ]; then
 fi
 cd '$REMOTE_DIR'
 git remote set-url origin '$REPO_URL'
-git fetch origin '$REMOTE_BRANCH'
+git fetch origin '$REMOTE_BRANCH:refs/remotes/origin/$REMOTE_BRANCH'
 git checkout '$REMOTE_BRANCH' >/dev/null 2>&1 || git checkout -b '$REMOTE_BRANCH'
-git reset --hard FETCH_HEAD
+git reset --hard 'origin/$REMOTE_BRANCH'
 make deploy-ios IOS_DEVICE_HOST='$IOS_DEVICE_HOST'
 "
