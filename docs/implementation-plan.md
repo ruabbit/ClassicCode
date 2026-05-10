@@ -178,6 +178,12 @@ Bridge decision:
 - `Sources/Bridge/ClassicCodeCodexBridge.py` runs on a modern Mac, starts `codex app-server`, and exposes the existing one-line TCP protocol plus Codex-oriented commands.
 - The iOS client uses a line adapter against that bridge. The old `ClassicCodeHost` remains a diagnostic shim.
 
+Current bridge validation:
+
+- Local bridge smoke test passed for `INFO`, `LIST_SESSIONS`, and `LIST_FILES`.
+- iPad-to-modern-Mac TCP path was verified through `10.1.100.10:17392` using iOS `curl telnet://...`.
+- From the iPad shell, `LIST_SESSIONS 1` returned a real Codex thread from the app-server state.
+
 Deliverables:
 
 - Inspect the actual Codex remote-control entrypoint and protocol.

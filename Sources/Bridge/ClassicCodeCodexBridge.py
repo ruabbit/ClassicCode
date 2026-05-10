@@ -10,6 +10,7 @@ modern Codex binary.
 import argparse
 import json
 import os
+import select
 import socketserver
 import subprocess
 import sys
@@ -112,15 +113,28 @@ class CodexAppServerClient:
         with self._lock:
             self._initialize_result = self._request_locked("initialize", params)
             self._send({"method": "initialized"})
+            self._drain_notifications_locked(0.05)
+
+    def _drain_notifications_locked(self, timeout):
+        while True:
+            ready, _, _ = select.select([self._process.stdout], [], [], timeout)
+            if not ready:
+                return
+            message = self._read_message()
+            if message.get("method") == "remoteControl/status/changed":
+                self._remote_status = message.get("params") or self._remote_status
+            timeout = 0
 
     def info(self):
-        return {
-            "bridge": "ClassicCodeCodexBridge",
-            "workspace": self.workspace,
-            "codexPath": self.codex_path,
-            "appServer": self._initialize_result,
-            "remoteControl": self._remote_status,
-        }
+        with self._lock:
+            self._drain_notifications_locked(0)
+            return {
+                "bridge": "ClassicCodeCodexBridge",
+                "workspace": self.workspace,
+                "codexPath": self.codex_path,
+                "appServer": self._initialize_result,
+                "remoteControl": self._remote_status,
+            }
 
 
 class ClassicCodeRequestHandler(socketserver.StreamRequestHandler):
