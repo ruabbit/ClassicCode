@@ -22,6 +22,7 @@ IOS_SRCS := Sources/iOS/main.m \
 	Sources/iOS/CCConnectionProfile.m \
 	Sources/iOS/CCDiagnosticRemoteControlAdapter.m \
 	Sources/iOS/CCHomeViewController.m \
+	Sources/iOS/CCLineRemoteControlAdapter.m \
 	Sources/iOS/CCRemoteClient.m \
 	Sources/iOS/CCSettingsViewController.m \
 	Sources/iOS/CCWorkbenchDetailViewController.m \

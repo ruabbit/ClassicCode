@@ -1,6 +1,6 @@
 #import "CCHomeViewController.h"
 #import "CCConnectionProfile.h"
-#import "CCDiagnosticRemoteControlAdapter.h"
+#import "CCLineRemoteControlAdapter.h"
 #import "CCSettingsViewController.h"
 #import "CCWorkbenchViewController.h"
 
@@ -33,7 +33,7 @@
     [super viewDidLoad];
     self.title = @"ClassicCode";
     self.view.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1.0];
-    _adapter = [[CCDiagnosticRemoteControlAdapter alloc] init];
+    _adapter = [[CCLineRemoteControlAdapter alloc] init];
 
     _statusTitleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     _statusTitleLabel.backgroundColor = [UIColor clearColor];

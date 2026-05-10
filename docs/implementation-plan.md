@@ -153,6 +153,31 @@ Verification:
 
 Purpose: connect the app to the real Codex remote-control surface once its local API is confirmed.
 
+Confirmed local protocol facts:
+
+- `codex app-server` supports a `stdio://` transport with newline-delimited JSON objects.
+- Messages use JSON-RPC-like objects without a required `jsonrpc` field:
+  - request: `{"id":1,"method":"thread/list","params":{...}}`
+  - response: `{"id":1,"result":{...}}`
+  - notification: `{"method":"remoteControl/status/changed","params":{...}}`
+- Initial handshake:
+  - client sends `initialize` with `clientInfo`,
+  - server returns `userAgent`, `codexHome`, `platformFamily`, and `platformOs`,
+  - client sends `initialized`.
+- Useful v2 methods for ClassicCode:
+  - `thread/list` for session browsing,
+  - `thread/read` with `includeTurns: true` for transcript/log browsing,
+  - `fs/readDirectory` for file navigation,
+  - `fs/readFile` for file contents as base64,
+  - `thread/start` and `turn/start` for task execution,
+  - `turn/interrupt` for cancellation when both thread id and turn id are known.
+
+Bridge decision:
+
+- Legacy iOS 6 / OS X 10.6 clients should not speak the full modern app-server transport directly.
+- `Sources/Bridge/ClassicCodeCodexBridge.py` runs on a modern Mac, starts `codex app-server`, and exposes the existing one-line TCP protocol plus Codex-oriented commands.
+- The iOS client uses a line adapter against that bridge. The old `ClassicCodeHost` remains a diagnostic shim.
+
 Deliverables:
 
 - Inspect the actual Codex remote-control entrypoint and protocol.
