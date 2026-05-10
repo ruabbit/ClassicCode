@@ -18,6 +18,7 @@
     NSArray *_directoryEntries;
     NSString *_directoryPath;
     BOOL _scrollMessagesToBottomAfterLayout;
+    BOOL _composerVisible;
     UITextField *_promptField;
     UIButton *_runButton;
     id<CCRemoteControlAdapter> _adapter;
@@ -85,6 +86,9 @@
     [_runButton setTitle:@"Run" forState:UIControlStateNormal];
     [_runButton addTarget:self action:@selector(runTask:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:_runButton];
+    _composerVisible = NO;
+    _promptField.hidden = YES;
+    _runButton.hidden = YES;
 
     [self showTitle:[CCConnectionProfile workspace] body:@"Select a conversation or file on the left."];
 }
@@ -97,12 +101,13 @@
     CGFloat composerHeight = 44.0;
     CGFloat titleHeight = 30.0;
     CGFloat runWidth = 72.0;
+    CGFloat bottomInset = _composerVisible ? composerHeight + 22.0 : 14.0;
 
     _titleLabel.frame = CGRectMake(margin, 12.0, bounds.size.width - margin * 2.0, titleHeight);
     _bodyView.frame = CGRectMake(margin,
                                  48.0,
                                  bounds.size.width - margin * 2.0,
-                                 bounds.size.height - 48.0 - composerHeight - 22.0);
+                                 bounds.size.height - 48.0 - bottomInset);
     _messageScrollView.frame = _bodyView.frame;
     _fileBrowserModeControl.frame = CGRectMake(margin,
                                                48.0,
@@ -111,7 +116,7 @@
     _fileBrowserScrollView.frame = CGRectMake(margin,
                                               88.0,
                                               bounds.size.width - margin * 2.0,
-                                              bounds.size.height - 88.0 - composerHeight - 22.0);
+                                              bounds.size.height - 88.0 - bottomInset);
     _promptField.frame = CGRectMake(margin,
                                     bounds.size.height - composerHeight - 10.0,
                                     bounds.size.width - margin * 2.0 - runWidth - 8.0,
@@ -127,6 +132,17 @@
 - (void)showTitle:(NSString *)title body:(NSString *)body
 {
     [self showTitle:title body:body items:nil];
+}
+
+- (void)setComposerVisible:(BOOL)visible
+{
+    _composerVisible = visible;
+    _promptField.hidden = !visible;
+    _runButton.hidden = !visible;
+    if (!visible) {
+        [_promptField resignFirstResponder];
+    }
+    [self.view setNeedsLayout];
 }
 
 - (void)showTitle:(NSString *)title body:(NSString *)body items:(NSArray *)items
@@ -146,8 +162,16 @@
     _messageScrollView.hidden = !hasItems;
     _fileBrowserScrollView.hidden = YES;
     _fileBrowserModeControl.hidden = YES;
+    [self setComposerVisible:hasItems];
     _scrollMessagesToBottomAfterLayout = hasItems;
     [self layoutMessageItems];
+}
+
+- (void)beginNewConversation
+{
+    [self showTitle:@"New Conversation" body:@"" items:nil];
+    [self setComposerVisible:YES];
+    [_promptField becomeFirstResponder];
 }
 
 - (UIColor *)colorForRole:(NSString *)role
@@ -730,6 +754,7 @@
     _messageScrollView.hidden = YES;
     _fileBrowserScrollView.hidden = NO;
     _fileBrowserModeControl.hidden = NO;
+    [self setComposerVisible:NO];
     [self layoutFileBrowser];
 }
 

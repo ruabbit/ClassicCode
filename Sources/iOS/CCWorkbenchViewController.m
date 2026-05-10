@@ -22,6 +22,9 @@
     [super viewDidLoad];
     self.title = @"Workbench";
     self.view.backgroundColor = [UIColor whiteColor];
+    self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCompose
+                                                                                            target:self
+                                                                                            action:@selector(newConversation:)] autorelease];
 
     _listController = [[CCWorkbenchListViewController alloc] initWithStyle:UITableViewStylePlain];
     _listController.delegate = self;
@@ -39,6 +42,18 @@
         [self addChildViewController:_listController];
         [self.view addSubview:_listController.view];
         [_listController didMoveToParentViewController:self];
+    }
+}
+
+- (void)newConversation:(id)sender
+{
+    (void)sender;
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        [_detailController beginNewConversation];
+    } else {
+        CCWorkbenchDetailViewController *detail = [[[CCWorkbenchDetailViewController alloc] init] autorelease];
+        [self.navigationController pushViewController:detail animated:YES];
+        [detail beginNewConversation];
     }
 }
 
